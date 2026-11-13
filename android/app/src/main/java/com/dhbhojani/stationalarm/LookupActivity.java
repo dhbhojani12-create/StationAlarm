@@ -59,7 +59,7 @@ public class LookupActivity extends Activity {
         hint.setTextSize(14);
         hint.setText("pnr".equals(mode)
                 ? "Enter PNR " + arg + " and the captcha, then tap \"Use this result\" once the status shows."
-                : "Open Train Schedule, enter train " + arg + ", then tap \"Use this result\" once the station list shows.");
+                : "Open Spot Your Train, enter train " + arg + ", then tap \"Use this result\" once the station list shows.");
         root.addView(hint);
         web = new WebView(this);
         WebSettings s = web.getSettings();
@@ -173,6 +173,22 @@ public class LookupActivity extends Activity {
     /* ---------------- NTES train schedule ---------------- */
     JSONObject parseSchedule(JSONObject snap) throws Exception {
         Data.load(this);
+        // NTES "Spot Your Train" lists the stopping stations in its page text
+        NtesParser.Result nr = NtesParser.parse(snap.optString("text"));
+        if (nr.stops.size() >= 2) {
+            JSONArray arr = new JSONArray();
+            for (NtesParser.Stop x : nr.stops) {
+                Data.Station st = Data.byCode(x.code);
+                if (st == null) continue; // a station we have no location for
+                int t = x.arr >= 0 ? x.arr : x.dep;
+                arr.put(new JSONObject().put("c", st.code).put("n", st.name).put("la", st.lat).put("lo", st.lon).put("t", t).put("h", 1));
+            }
+            if (arr.length() >= 2) {
+                String num = nr.number.isEmpty() ? arg : nr.number;
+                String name = nr.name.isEmpty() ? "Train " + num : num + " " + titleCase(nr.name);
+                return new JSONObject().put("num", num).put("name", name + " (NTES)").put("stops", arr);
+            }
+        }
         JSONArray rows = snap.optJSONArray("rows");
         if (rows == null) return null;
         Map<String, JSONObject> stops = new LinkedHashMap<>();
@@ -201,6 +217,16 @@ public class LookupActivity extends Activity {
         JSONArray arr = new JSONArray(stops.values());
         arr.getJSONObject(arr.length() - 1).put("h", 1);
         return new JSONObject().put("num", arg).put("name", "Train " + arg + " (from NTES)").put("stops", arr);
+    }
+
+    static String titleCase(String s) {
+        StringBuilder b = new StringBuilder();
+        for (String w : s.toLowerCase(Locale.ROOT).split(" ")) {
+            if (w.isEmpty()) continue;
+            if (b.length() > 0) b.append(' ');
+            b.append(w.length() <= 4 && w.equals(w.replaceAll("[aeiou]", "")) ? w.toUpperCase(Locale.ROOT) : Character.toUpperCase(w.charAt(0)) + w.substring(1));
+        }
+        return b.toString();
     }
 
     Button btn(String t, String bg, String fg) {
