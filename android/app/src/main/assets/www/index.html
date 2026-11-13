@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Station Alarm</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--soft:#f1f5f9;--ink:#0f172a;--mut:#475569;--faint:#64748b;--line:#e2e8f0;--acc:#facc15;--dark:#0f172a;--onDark:#fff;--ok:#166534;--warn:#9a3412;--bad:#b91c1c}
+html.night{--bg:#05070b;--card:#0f141c;--soft:#161d27;--ink:#e2e8f0;--mut:#94a3b8;--faint:#8291a6;--line:#1e2733;--acc:#b8941a;--dark:#161d27;--onDark:#e2e8f0;--ok:#4ade80;--warn:#fdba74;--bad:#f87171}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:20px 18px 40px}
+h1{margin:0;font-size:28px;letter-spacing:-.5px;line-height:1.15}
+h2{margin:0;font-size:18px}
+.sub{color:var(--mut);font-size:13.5px;margin-top:2px}
+.lab{font-size:12px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin:18px 2px 8px}
+.card{background:var(--card);border-radius:20px;padding:14px 16px;margin-top:12px}
+.dark{background:var(--dark);color:var(--onDark)}
+button{font:inherit;border:0;cursor:pointer;color:inherit;background:none}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;border-radius:16px;font-weight:700;font-size:15.5px;background:var(--card);margin-top:10px;color:var(--ink)}
+.btn.pri{background:var(--ink);color:var(--bg)}
+.btn.warn{color:var(--bad)}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:44px;padding:0 14px;border-radius:14px;background:var(--card);font-weight:600;font-size:14px;color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--bg)}
+.pill{display:inline-block;padding:5px 10px;border-radius:10px;font-size:12.5px;font-weight:700;background:var(--soft);color:var(--ink)}
+.pill.acc{background:var(--acc);color:#0f172a}
+.list{background:var(--card);border-radius:20px;padding:4px 0;margin-top:10px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 16px;min-height:52px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item small{display:block;color:var(--mut);font-size:12.5px}
+.item.sel{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+input[type=text],input[type=search],input[type=number]{width:100%;height:54px;border-radius:16px;border:2px solid var(--line);background:var(--card);color:var(--ink);padding:0 16px;font:inherit;font-size:17px}
+input:focus{outline:none;border-color:var(--ink)}
+.big{font-size:38px;font-weight:800;letter-spacing:-1px;line-height:1.05}
+.stat{font-size:26px;font-weight:800}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.tile{min-height:76px;border-radius:18px;background:var(--card);padding:12px;text-align:left;display:flex;flex-direction:column;justify-content:space-between}
+.tile b{font-size:15px}.tile span{font-size:12px;color:var(--mut)}
+.mode{min-height:96px;border-radius:20px;padding:14px;text-align:left;display:flex;flex-direction:column;justify-content:space-between}
+.mode b{font-size:19px}.mode span{font-size:12.5px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.icon{width:44px;height:44px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:0 0 44px}
+.icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.route{position:relative;padding:4px 0}
+.route:before{content:"";position:absolute;left:27px;top:24px;bottom:24px;width:2px;background:var(--line)}
+.stop{position:relative;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:7px 16px;min-height:44px}
+.stop i{flex:0 0 24px;display:flex;justify-content:center}
+.stop i:before{content:"";width:10px;height:10px;border-radius:50%;background:var(--card);border:2px solid var(--faint)}
+.stop.past{color:var(--faint)}.stop.past i:before{background:var(--faint)}
+.stop.dest{font-weight:800}.stop.dest i:before{width:14px;height:14px;background:var(--ink);border-color:var(--ink)}
+.stop.me i:before{width:18px;height:18px;background:var(--acc);border:3px solid var(--ink)}
+.stop .t{margin-left:auto;font-size:12.5px;color:var(--mut);font-weight:500}
+.stop .bell{font-size:12px;font-weight:700;color:var(--warn)}
+.minor{font-size:13px}
+.muted{color:var(--mut)}.small{font-size:12.5px}
+.center{text-align:center}
+.banner{background:#fff7ed;color:#9a3412;border-radius:16px;padding:12px 14px;margin-top:12px;font-weight:600;font-size:14px}
+html.night .banner{background:#2e1c0c;color:#fdba74}
+.check{display:flex;align-items:center;gap:12px;min-height:48px;font-size:16px}
+.check input{width:24px;height:24px}
+.msg{background:var(--soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14.5px}
+.hide{display:none!important}
+a{color:inherit}
+.dark .icon{background:#ffffff1f;color:var(--onDark)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const $=s=>document.querySelector(s);
+const app=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const hasSA=typeof SA!=='undefined';
+const LINES=hasSA?JSON.parse(SA.lines()):[];
+const ICON={moon:'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'};
+
+/* ---------- night mode ---------- */
+function applyNight(){document.documentElement.classList.toggle('night',!!LS.get('night',false))}
+function toggleNight(){LS.set('night',!LS.get('night',false));applyNight()}
+applyNight();
+
+/* ---------- navigation ---------- */
+let view='home',stack=[],timer=null;
+function go(v,push=true){if(push&&view!==v)stack.push(view);view=v;render();scrollTo(0,0)}
+window.goBack=function(){if(!stack.length)return false;view=stack.pop();render();return true};
+function head(title,sub,right=''){return `<div class="top"><div style="display:flex;gap:10px;align-items:flex-start">${stack.length?`<button class="icon" aria-label="Back" onclick="goBack()">${ICON.back}</button>`:''}<div><h1>${esc(title)}</h1>${sub?`<div class="sub">${esc(sub)}</div>`:''}</div></div>${right}</div>`}
+const nightBtn=()=>`<button class="icon" aria-label="Night mode" onclick="toggleNight()">${ICON.moon}</button>`;
+
+/* ---------- helpers ---------- */
+const fmtMin=m=>{m=Math.round(m);return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min'};
+const fmtKm=m=>m<1000?Math.round(m)+' m':(m<10000?(m/1000).toFixed(1):Math.round(m/1000))+' km';
+const hhmm=t=>{if(t==null||t<0)return'';const m=t%1440,h=Math.floor(m/60),mi=m%60;return((h+11)%12+1)+':'+String(mi).padStart(2,'0')+(h<12?' am':' pm')+(t>=1440?' (day '+(Math.floor(t/1440)+1)+')':'')};
+const clock=()=>{const d=new Date();let h=d.getHours();const m=String(d.getMinutes()).padStart(2,'0');return((h+11)%12+1)+':'+m+(h<12?' am':' pm')};
+function delayText(d){if(d==null)return'';if(d>5)return'About '+fmtMin(d)+' late';if(d<-5)return'Running early';return'On time'}
+
+/* ---------- trip building ---------- */
+function startTrip(t,save){
+  t.started=Date.now();
+  if(!hasSA){alert('Open this in the Station Alarm app');return}
+  const p=JSON.parse(SA.perms());
+  if(!p.loc){pendingStart=[t,save];SA.askPerms();return}
+  if(save)saveTrip(save,t);
+  if(SA.start(JSON.stringify(t))){stack=[];go('trip',false)}
+}
+let pendingStart=null;
+window.onPerms=function(){const p=JSON.parse(SA.perms());if(pendingStart&&p.loc){const[t,s]=pendingStart;pendingStart=null;startTrip(t,s)}else render()};
+function saveTrip(name,t){const list=LS.get('saved',[]);const id='s'+Date.now();const spec=JSON.parse(JSON.stringify(t));delete spec.started;list.unshift({id,name,sub:t.st[t.dest].n,spec});LS.set('saved',list.slice(0,6));syncSaved()}
+function syncSaved(){if(hasSA)SA.setSaved(JSON.stringify(LS.get('saved',[]).slice(0,3).map(s=>({id:s.id,name:s.name,sub:s.sub}))))}
+window.startSaved=function(id){const s=LS.get('saved',[]).find(x=>x.id===id);if(!s)return;const st=JSON.parse(SA.state());if(st.active){go('trip',false);return}startTrip(JSON.parse(JSON.stringify(s.spec)))};
+
+/* ---------- screens ---------- */
+const V={};
+V.home=()=>{
+  const saved=LS.get('saved',[]);
+  const p=hasSA?JSON.parse(SA.perms()):{loc:true,notif:true,batt:true};
+  return `${head('Station Alarm','Doze off. We tell you before your stop.',`<div style="display:flex;gap:8px">${nightBtn()}<button class="icon" aria-label="Settings" onclick="go('settings')">${ICON.gear}</button></div>`)}
+  ${!p.batt?`<button class="banner" style="width:100%;text-align:left" onclick="go('settings')">Allow Station Alarm to run in the background, so the phone doesn't stop it mid-trip ›</button>`:''}
+  ${saved.length?`<div class="lab">Saved trips · one tap</div><div class="tiles">${saved.slice(0,6).map(s=>`<button class="tile" onclick="startSaved('${s.id}')"><b>${esc(s.name)}</b><span>${esc(s.sub)}</span></button>`).join('')}</div>`:''}
+  <div class="row" style="margin-top:14px"><button class="mode dark" onclick="go('local')"><b>Local trip</b><span>Western line and Metro</span></button><button class="mode" style="background:var(--acc);color:#0f172a" onclick="go('long')"><b>Long trip</b><span>Train number or any station</span></button></div>
+  <div class="list">
+    <button class="item" onclick="go('log')"><b>Travel log</b><span class="muted small">${JSON.parse(hasSA?SA.log():'[]').length} trips ›</span></button>
+    <button class="item" onclick="go('messages')"><b>Family messages</b><span class="muted small">4 ready ›</span></button>
+  </div>
+  <p class="center muted small" style="margin-top:18px">The alarm works with no network. Station data is stored on this phone.</p>`};
+
+/* local */
+let L={line:LINES[0]?.id,q:'',dest:null,alert:{type:'stops',v:1},save:''};
+V.local=()=>{
+  const line=LINES.find(l=>l.id===L.line)||LINES[0];
+  const q=L.q.trim().toLowerCase();
+  const sts=line.st.map((s,i)=>({s,i})).filter(x=>!q||x.s[0].toLowerCase().includes(q));
+  const al=[['stops',1,'1 stop before'],['stops',2,'2 stops before'],['km',1.5,'1.5 km away']];
+  return `${head('Local trip','Pick your stop. Your direction is worked out by itself.')}
+  <div class="chips" style="margin-top:14px">${LINES.map(l=>`<button class="chip ${l.id===line.id?'on':''}" onclick="L.line='${l.id}';L.dest=null;render()">${esc(l.name)}</button>`).join('')}</div>
+  <div class="sub" style="margin:8px 2px 0">${esc(line.note)}</div>
+  <input type="search" placeholder="Search station" aria-label="Search station" value="${esc(L.q)}" oninput="L.q=this.value;renderList()" style="margin-top:10px">
+  <div class="list" id="stlist" style="max-height:44vh;overflow:auto">${sts.map(x=>`<button class="item ${L.dest===x.i?'sel':''}" onclick="L.dest=${x.i};render()"><b>${esc(x.s[0])}</b>${L.dest===x.i?'<span>✓</span>':''}</button>`).join('')||'<div class="item muted">No station with that name on this line</div>'}</div>
+  <div class="lab">Notify me</div>
+  <div class="chips">${al.map(a=>`<button class="chip ${L.alert.type===a[0]&&L.alert.v===a[1]?'on':''}" onclick="L.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
+  <input type="text" placeholder="Save as (optional), e.g. Home" aria-label="Save trip as" value="${esc(L.save)}" oninput="L.save=this.value" style="margin-top:14px">
+  <button class="btn pri" ${L.dest==null?'disabled style="opacity:.5"':''} onclick="startLocal()">${L.dest==null?'Pick a station':'Start · '+esc(line.st[L.dest][0])}</button>
+  <p class="center muted small">Location is used only during this trip.</p>`};
+window.renderList=()=>{const el=$('#stlist');const y=el?el.scrollTop:0;render();const n=$('#stlist');if(n)n.scrollTop=y;const i=document.querySelector('input[type=search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}};
+function startLocal(){const line=LINES.find(l=>l.id===L.line);if(L.dest==null)return;
+  startTrip({kind:'local',line:line.id,lineName:line.name,st:line.st.map(s=>({n:s[0],la:s[1],lo:s[2]})),dest:L.dest,alert:L.alert,extra:[]},L.save.trim()||null)}
+
+/* long */
+let T={num:'',train:null,dest:null,showAll:false,alert:{type:'min',v:30},err:'',save:''};
+V.long=()=>{
+  const al=[['min',30,'30 min before'],['min',45,'45 min before'],['km',20,'20 km before']];
+  const t=T.train;
+  let stops='';
+  if(t){const list=t.stops.map((s,i)=>({s,i})).filter(x=>T.showAll||x.s.h||x.i===T.dest);
+    stops=`<div class="card dark"><b style="font-size:16px">${esc(t.name)}</b><div class="small" style="opacity:.8;margin-top:2px">${esc(t.num)} · ${t.stops.filter(s=>s.h).length} stops · tap where you get off</div></div>
+    <div class="list" style="max-height:46vh;overflow:auto">${list.map(x=>`<button class="item ${T.dest===x.i?'sel':''}" onclick="T.dest=${x.i};render()"><span><b style="font-weight:${x.s.h?700:500}">${esc(x.s.n)}</b><small>${x.s.h?'':'passes through · '}${hhmm(x.s.t)}</small></span>${T.dest===x.i?'✓':''}</button>`).join('')}</div>
+    <button class="btn" style="min-height:44px;font-size:14px" onclick="T.showAll=!T.showAll;render()">${T.showAll?'Show only stops':'Show every station it passes'}</button>`}
+  return `${head('Long trip','Type your train number, then pick where you get off.')}
+  <div class="lab">Train number</div>
+  <div class="row"><input type="number" inputmode="numeric" placeholder="e.g. 12268" aria-label="Train number" value="${esc(T.num)}" oninput="T.num=this.value" onkeydown="if(event.key==='Enter')findTrain()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="findTrain()">Find</button></div>
+  ${T.err?`<div class="banner">${esc(T.err)}</div>`:''}
+  ${stops}
+  <button class="btn" onclick="go('anystation')">Train not found? Pick your stop from all stations</button>
+  ${t?`<div class="lab">Notify me</div><div class="chips">${al.map(a=>`<button class="chip ${T.alert.type===a[0]&&T.alert.v===a[1]?'on':''}" onclick="T.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
+  <input type="text" placeholder="Save as (optional), e.g. Rajkot" aria-label="Save trip as" value="${esc(T.save)}" oninput="T.save=this.value" style="margin-top:14px">
+  <button class="btn pri" ${T.dest==null?'disabled style="opacity:.5"':''} onclick="startLong()">${T.dest==null?'Pick your stop':'Start · '+esc(t.stops[T.dest].n)}</button>`:''}
+  <p class="center muted small">Timetables are from an open 2016 railway dataset stored on this phone. New trains or changed stops may be missing.</p>`};
+window.findTrain=function(){const n=T.num.trim();if(!n)return;const r=SA.train(n);T.dest=null;T.showAll=false;if(!r){T.train=null;T.err='Train '+n+' is not in the stored timetable. Pick your stop from all stations instead.'}else{T.train=JSON.parse(r);T.err=''}render()};
+function startLong(){const t=T.train;if(!t||T.dest==null)return;
+  startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(s=>({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h})),dest:T.dest,alert:T.alert,extra:[]},T.save.trim()||null)}
+
+/* any station */
+let A={q:'',res:[],sel:null,alert:{type:'min',v:30}};
+V.anystation=()=>{
+  const al=[['min',30,'30 min before'],['km',20,'20 km before'],['km',5,'5 km before']];
+  return `${head('Any station','Works for any train. Uses your location only.')}
+  <input type="search" placeholder="Station name or code, e.g. Borivali or BVI" aria-label="Station" value="${esc(A.q)}" oninput="A.q=this.value;searchAny()" style="margin-top:14px">
+  <div class="list" id="anyres">${anyList()}</div>
+  <div class="lab">Notify me</div><div class="chips">${al.map(a=>`<button class="chip ${A.alert.type===a[0]&&A.alert.v===a[1]?'on':''}" onclick="A.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
+  <button class="btn pri" ${!A.sel?'disabled style="opacity:.5"':''} onclick="startAny()">${A.sel?'Start · '+esc(A.sel.n):'Pick a station'}</button>
+  <p class="center muted small">Without a timetable, time left comes from the train's speed, and "late or on time" isn't shown.</p>`};
+function anyList(){return A.res.map((s,i)=>`<button class="item ${A.sel&&A.sel.c===s.c?'sel':''}" onclick="A.sel=A.res[${i}];render()"><span><b>${esc(s.n)}</b><small>${esc(s.c)}${s.s?' · '+esc(s.s):''}</small></span></button>`).join('')||`<div class="item muted">${A.q.length<2?'Type at least 2 letters':'No match'}</div>`}
+window.searchAny=function(){A.res=JSON.parse(SA.search(A.q));$('#anyres').innerHTML=anyList()};
+function startAny(){if(!A.sel)return;startTrip({kind:'long',noRoute:true,st:[{n:A.sel.n,la:A.sel.la,lo:A.sel.lo}],dest:0,alert:A.alert,extra:[]})}
+
+/* on the way */
+V.trip=()=>{
+  const s=JSON.parse(SA.state());const t=SA.trip()?JSON.parse(SA.trip()):null;
+  if(!t){return V.home()}
+  const d=t.st[t.dest].n,local=t.kind==='local',noRoute=t.noRoute;
+  const waiting=!s.fix;
+  let top;
+  if(waiting)top=`<div class="big" style="font-size:30px">Finding your location…</div><div class="small" style="opacity:.8;margin-top:6px">Stay near a window. This can take a minute on a train.</div>`;
+  else if(local&&!noRoute)top=`<div class="big">${s.stopsAway<=0?'Next stop':(s.stopsAway+1)+' stops to go'}</div>`;
+  else top=`<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap"><span class="stat">${fmtKm(s.remaining)}</span>${s.eta!=null?`<span class="stat">${fmtMin(s.eta)}</span>`:''}</div>`;
+  const ago=s.fix?Math.round((Date.now()-s.fix)/1000):null;
+  let route='';
+  if(!noRoute&&s.cum){
+    const cum=s.cum,prog=s.progress;let idx=t.st.map((x,i)=>i);
+    if(!local)idx=idx.filter(i=>t.st[i].h||i===t.dest||(t.extra||[]).includes(i));
+    let lo=0,hi=t.st.length-1;
+    if(local){const passed=idx.filter(i=>cum[i]<=prog);lo=Math.max(0,(passed.length?passed[passed.length-1]:0)-1);hi=Math.min(t.st.length-1,t.dest+1);if(lo>t.dest)lo=Math.max(0,t.dest-2)}
+    let html='',meDone=false;
+    for(const i of idx){if(i<lo||i>hi)continue;
+      if(!meDone&&cum[i]>prog+50&&prog>=0){meDone=true;html+=`<div class="stop me"><i></i><span><b>${esc(s.near||'You are here')}</b><small class="muted small" style="display:block">${s.speed>1?Math.round(s.speed*3.6)+' km/h':'stopped'}</small></span></div>`}
+      const st=t.st[i],cls=i===t.dest?'dest':(cum[i]<=prog?'past':''),bell=(t.extra||[]).includes(i);
+      html+=`<button class="stop ${cls}" onclick="toggleExtra(${i})"><i></i><span>${esc(st.n)}${i===t.dest?' <span class="pill acc">your stop</span>':''}${bell?' <span class="bell">· alert</span>':''}</span><span class="t">${st.t>=0?hhmm(st.t):''}</span></button>`}
+    route=`<div class="card" style="padding:6px 0"><div class="route">${html}</div><p class="center muted small" style="margin:6px 12px 8px">Tap a station to be told when you're near it.</p></div>`}
+  return `<div class="card dark" style="margin-top:0;border-radius:24px;padding:16px 18px">
+    <div class="top"><span class="small" style="opacity:.85;font-weight:600">${esc(t.train?t.train+' · ':'')}heading to</span>${nightBtn()}</div>
+    <div class="big" style="margin:2px 0 8px">${esc(d)}</div>${top}
+    <div class="chips" style="margin-top:10px">${s.delay!=null?`<span class="pill acc">${delayText(s.delay)}</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}<span class="pill">No network needed</span></div></div>
+  ${!waiting?`<div class="card"><div class="lab" style="margin:0 0 4px">Where am I</div><b style="font-size:19px">${esc(s.near||'…')}</b><div class="muted small">${s.speed>1?'Moving at about '+Math.round(s.speed*3.6)+' km/h':'Not moving right now'}${ago!=null?' · updated '+(ago<60?ago+' s':Math.round(ago/60)+' min')+' ago':''}</div></div>`:''}
+  ${route}
+  <div class="row"><button class="btn" onclick="go('messages')">Family messages</button>${t.train?`<button class="btn" onclick="go('timetable')">Timetable</button>`:''}</div>
+  <button class="btn warn" onclick="if(confirm('Stop this trip?')){SA.stop();setTimeout(()=>{stack=[];go('home',false)},400)}">Stop trip</button>`};
+window.toggleExtra=function(i){const t=JSON.parse(SA.trip());if(i===t.dest)return;t.extra=t.extra||[];const k=t.extra.indexOf(i);if(k>=0)t.extra.splice(k,1);else t.extra.push(i);SA.updateTrip(JSON.stringify(t));SA.toast(k>=0?'Alert removed':'You will be told when you are near '+t.st[i].n);render()};
+
+/* timetable */
+V.timetable=()=>{const t=JSON.parse(SA.trip()||SA.last()||'{}');if(!t.st)return V.home();
+  return `${head('Timetable',(t.train||'')+' · saved on this phone')}
+  <div class="list">${t.st.filter((s,i)=>s.h||i===t.dest).map(s=>`<div class="item"><span style="font-weight:${s.n===t.st[t.dest].n?800:500}">${esc(s.n)}</span><span class="muted small">${hhmm(s.t)}</span></div>`).join('')}</div>
+  <p class="center muted small">Scheduled times only. "Late or on time" compares these with where your phone is.</p>`};
+
+/* family messages */
+function msgs(){const t=JSON.parse((hasSA&&(SA.trip()||SA.last()))||'{}');const s=hasSA?JSON.parse(SA.state()):{};
+  const d=t.st?t.st[t.dest].n:'[your stop]';const tr=t.train?'train '+t.train+(t.trainName?' ('+t.trainName+')':''):'';
+  const from=t.st&&t.kind!=='local'&&!t.noRoute&&s.progress!=null&&s.cum?t.st[Math.max(0,s.cum.findIndex(c=>c>s.progress)-1)]?.n:'';
+  const eta=s.eta!=null?(()=>{const a=new Date(Date.now()+s.eta*60000);let h=a.getHours();return((h+11)%12+1)+':'+String(a.getMinutes()).padStart(2,'0')+(h<12?' am':' pm')})():null;
+  return [['Boarded','Boarded'+(tr?' '+tr:'')+'. Heading to '+d+'.'],
+    ['30 minutes away','About '+(s.eta!=null?fmtMin(s.eta):'30 minutes')+' from '+d+'.'],
+    ['Pickup details',(tr?'Train '+(t.train||'')+', ':'')+'reaching '+d+(eta?' around '+eta:'')+'.'],
+    ['Reached','Reached '+d+' safely, '+clock()+'.']]}
+V.messages=()=>`${head('Family messages','Already written. You pick the group and press Send.')}
+  ${msgs().map((m,i)=>`<div class="card"><b>${m[0]}</b><div class="msg">${esc(m[1])}</div><button class="btn pri" style="margin-top:4px;min-height:46px" onclick="SA.share(msgs()[${i}][1])">Open in WhatsApp</button></div>`).join('')}`;
+
+/* arrived */
+V.arrived=()=>{const t=JSON.parse(SA.last()||'{}');if(!t.st)return V.home();const d=t.st[t.dest].n;
+  const items=LS.get('luggage',['Bag','Charger','Water bottle']);
+  return `<div class="card dark" style="margin-top:0;border-radius:24px;padding:18px"><span class="small" style="opacity:.85">${t.missed?'You passed':'You have reached'}</span><div class="big">${esc(d)}</div></div>
+  <button class="btn pri" onclick="SA.share('Reached ${esc(d).replace(/'/g,"\\'")} safely, '+clock()+'.')">Tell family on WhatsApp</button>
+  <div class="card"><b>Before you get down</b>${items.map(x=>`<label class="check"><input type="checkbox">${esc(x)}</label>`).join('')}</div>
+  <p class="center muted small">Trip saved to your travel log.</p>
+  <button class="btn" onclick="SA.clearLast();stack=[];go('home',false)">Done</button>`};
+
+/* log */
+V.log=()=>{const log=JSON.parse(SA.log()).reverse();const yr=new Date().getFullYear();
+  const y=log.filter(e=>new Date(e.start).getFullYear()===yr);const km=y.reduce((a,e)=>a+(e.km||0),0);const hrs=y.reduce((a,e)=>a+((e.end-e.start)/3600000||0),0);
+  return `${head('Travel log','Saved automatically when a trip ends.')}
+  <div class="tiles"><div class="tile dark"><span style="color:inherit;opacity:.8">${yr} distance</span><b style="font-size:20px">${Math.round(km).toLocaleString('en-IN')} km</b></div><div class="tile"><span>Time</span><b style="font-size:20px">${Math.round(hrs)} h</b></div><div class="tile"><span>Trips</span><b style="font-size:20px">${y.length}</b></div></div>
+  <div class="list">${log.map(e=>{const d=new Date(e.start);return`<div class="item"><span><b>${esc(e.from||'?')} → ${esc(e.to)}</b><small>${e.km} km · ${fmtMin((e.end-e.start)/60000)}${e.delay!=null?' · '+delayText(e.delay).toLowerCase():''}${e.train?' · '+esc(e.train):''}</small></span><span class="muted small">${d.getDate()} ${d.toLocaleString('en',{month:'short'})}</span></div>`}).join('')||'<div class="item muted">No trips yet</div>'}</div>`};
+
+/* settings */
+V.settings=()=>{const p=JSON.parse(SA.perms());const items=LS.get('luggage',['Bag','Charger','Water bottle']);
+  return `${head('Settings')}
+  <div class="lab">So alerts always arrive</div>
+  <div class="list">
+   <button class="item" onclick="SA.askPerms()"><span><b>Location and notifications</b><small>${p.loc&&p.notif?'Allowed':'Needed for the alarm'}</small></span><span>${p.loc&&p.notif?'✓':'Allow ›'}</span></button>
+   <button class="item" onclick="SA.batterySettings()"><span><b>Run in the background</b><small>${p.batt?'Allowed':'Samsung may stop the app mid-trip without this'}</small></span><span>${p.batt?'✓':'Allow ›'}</span></button>
+  </div>
+  <div class="lab">Luggage check on arrival</div>
+  <input type="text" aria-label="Luggage items" value="${esc(items.join(', '))}" onchange="LS.set('luggage',this.value.split(',').map(x=>x.trim()).filter(Boolean))">
+  <div class="sub" style="margin:6px 2px">Separate items with commas.</div>
+  <div class="lab">Saved trips</div>
+  <div class="list">${LS.get('saved',[]).map((s,i)=>`<div class="item"><span><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span><button class="chip" onclick="delSaved(${i})">Remove</button></div>`).join('')||'<div class="item muted">None yet. Type a name in "Save as" when you start a trip.</div>'}</div>
+  <div class="lab">Data</div>
+  <div class="card small muted">Train timetables and station locations: datameet Indian Railways data (CC0). Metro station locations © OpenStreetMap contributors (ODbL). Some Western line and Metro Line 1 station locations are estimates; tell Claude if an alert comes at the wrong place.</div>`};
+window.delSaved=i=>{const l=LS.get('saved',[]);l.splice(i,1);LS.set('saved',l);syncSaved();render()};
+
+/* ---------- render loop ---------- */
+function lastArrived(){try{const l=SA.last();return !!(l&&JSON.parse(l).arrived)}catch(e){return false}}
+function render(){clearInterval(timer);app.innerHTML=(V[view]||V.home)();if(view==='trip')timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const y=scrollY;app.innerHTML=V.trip();scrollTo(0,y)},3000)}
+window.onResumeApp=function(){if(!hasSA)return;const s=JSON.parse(SA.state());if(s.active&&SA.trip()){if(view!=='trip'&&view!=='messages'&&view!=='timetable'){stack=[];go('trip',false)}else render()}else if(lastArrived()&&view!=='arrived'){stack=[];go('arrived',false)}else if(view==='trip'){stack=[];go('home',false)}else render()};
+syncSaved();
+(function boot(){if(!hasSA){render();return}const s=JSON.parse(SA.state());if(s.active&&SA.trip())view='trip';else if(lastArrived())view='arrived';render();const sv=SA.takePendingSaved();if(sv)startSaved(sv)})();
+</script>
+</body>
+</html>
