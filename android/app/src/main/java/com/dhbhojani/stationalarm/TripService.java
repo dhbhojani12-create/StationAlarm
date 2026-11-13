@@ -246,9 +246,9 @@ public class TripService extends Service {
         Double schedHere = sched(progress);
         if (schedHere != null) {
             if (base < 0) base = pickBase(now, schedHere);
-            int d = (int) Math.round((now - base) / 60000.0 - schedHere);
-            if (d < -15 && speedMs < 2.5) { dueMin = -d; base = -1; }
-            else delayMin = d;
+            int dl = (int) Math.round((now - base) / 60000.0 - schedHere);
+            if (dl < -15 && speedMs < 2.5) { dueMin = -dl; base = -1; }
+            else delayMin = dl;
         }
         etaMin = null;
         Double schedDest = noRoute ? null : sched(cum[dest]);
