@@ -24,7 +24,7 @@ import java.util.List;
 
 public class MainActivity extends Activity {
     WebView web;
-    String pendingSaved;
+    String pendingSaved, pendingTicket;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
             }
         });
         pendingSaved = getIntent().getStringExtra("saved");
+        pendingTicket = getIntent().getStringExtra("ticket");
         web.loadUrl("file:///android_asset/www/index.html");
     }
 
@@ -52,6 +53,8 @@ public class MainActivity extends Activity {
         super.onNewIntent(i);
         String sv = i.getStringExtra("saved");
         if (sv != null) web.evaluateJavascript("window.startSaved&&startSaved(" + JSONObject.quote(sv) + ")", null);
+        String tk = i.getStringExtra("ticket");
+        if (tk != null) web.evaluateJavascript("window.openTicket&&openTicket(" + JSONObject.quote(tk) + ")", null);
     }
 
     @Override
@@ -151,6 +154,28 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String takePendingSaved() { String s = pendingSaved; pendingSaved = null; return s == null ? "" : s; }
 
         @JavascriptInterface public void share(String text) { runOnUiThread(() -> startActivity(waIntent(MainActivity.this, text))); }
+
+        @JavascriptInterface public void lookup(String mode, String arg) {
+            runOnUiThread(() -> startActivity(new Intent(MainActivity.this, LookupActivity.class).putExtra("mode", mode).putExtra("arg", arg)));
+        }
+
+        @JavascriptInterface public String takeLookup() {
+            String s = TripService.prefs(MainActivity.this).getString("lookup", "");
+            TripService.prefs(MainActivity.this).edit().remove("lookup").apply();
+            return s;
+        }
+
+        @JavascriptInterface public void remind(String id, double at, String title, String text) {
+            ReminderReceiver.schedule(MainActivity.this, id, (long) at, title, text);
+        }
+
+        @JavascriptInterface public void unremind(String id) { ReminderReceiver.cancel(MainActivity.this, id); }
+
+        @JavascriptInterface public void call(String num) {
+            runOnUiThread(() -> startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + num))));
+        }
+
+        @JavascriptInterface public String takePendingTicket() { String s = pendingTicket; pendingTicket = null; return s == null ? "" : s; }
 
         @JavascriptInterface public void toast(String t) { runOnUiThread(() -> Toast.makeText(MainActivity.this, t, Toast.LENGTH_SHORT).show()); }
     }

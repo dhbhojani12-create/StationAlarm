@@ -44,6 +44,8 @@ public class Data {
         byCode = map;
     }
 
+    static Station byCode(String c) { return byCode == null ? null : byCode.get(c); }
+
     static String asset(Context ctx, String name) {
         StringBuilder sb = new StringBuilder();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(ctx.getAssets().open(name), StandardCharsets.UTF_8))) {

@@ -182,6 +182,7 @@ public class TripService extends Service {
             try { // extra alerts can be added from the app while the trip runs
                 JSONObject cur = new JSONObject(prefs(this).getString("trip", "{}"));
                 if (cur.has("extra")) trip.put("extra", cur.getJSONArray("extra"));
+                if (cur.has("share")) trip.put("share", cur.getString("share")); else trip.remove("share");
             } catch (Exception ignored) { }
             compute(l, acc, now);
             write(now);
@@ -463,11 +464,50 @@ public class TripService extends Service {
             prefs(this).edit().putString("state", s.toString()).apply();
         } catch (Exception ignored) { }
         TripWidget.refresh(this);
+        publish(now, false);
+    }
+
+    long lastPub = 0;
+
+    /** Sends a small update for the family page (station-level only), when sharing is on. */
+    void publish(long now, boolean force) {
+        final String topic = trip == null ? "" : trip.optString("share", "");
+        if (topic.isEmpty() || (!force && now - lastPub < 90000 && !arrived)) return;
+        lastPub = now;
+        try {
+            JSONArray route = new JSONArray();
+            if (!noRoute && cum != null) for (int i = 0; i < st.length() && route.length() < 70; i++) {
+                JSONObject s = st.getJSONObject(i);
+                if (local || s.optInt("h", 1) == 1 || i == dest)
+                    route.put(new JSONArray().put(s.getString("n")).put(Math.round(cum[i])).put(s.optInt("t", -1)));
+            }
+            JSONObject m = new JSONObject().put("v", 1).put("ts", now).put("dest", destName()).put("destM", cum == null || noRoute ? -1 : Math.round(cum[dest]))
+                    .put("train", trip.optString("train", "")).put("trainName", trip.optString("trainName", trip.optString("lineName", "")))
+                    .put("near", near).put("progress", Math.round(progress)).put("remaining", Math.round(remaining))
+                    .put("speed", Math.round(speedMs * 3.6)).put("arrived", arrived).put("route", route);
+            if (etaMin != null) m.put("eta", Math.round(etaMin));
+            if (delayMin != null) m.put("delay", delayMin);
+            final byte[] body = m.toString().getBytes("UTF-8");
+            new Thread(() -> {
+                try {
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL("https://ntfy.sh/" + topic).openConnection();
+                    c.setRequestMethod("POST");
+                    c.setDoOutput(true);
+                    c.setConnectTimeout(15000);
+                    c.setReadTimeout(15000);
+                    c.setRequestProperty("Cache", "yes");
+                    c.getOutputStream().write(body);
+                    c.getResponseCode();
+                    c.disconnect();
+                } catch (Exception ignored) { } // no network: the page shows "last seen"
+            }).start();
+        } catch (Exception ignored) { }
     }
 
     /** Ends the trip: saves it to the travel log and stops following your location. */
     void finish(boolean byUser) {
         try { lm.removeUpdates(ll); } catch (Exception ignored) { }
+        if (arrived) publish(now(), true);
         SharedPreferences p = prefs(this);
         try {
             if (trip == null) loadTrip();
