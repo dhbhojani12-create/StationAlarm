@@ -53,6 +53,7 @@ public class TripService extends Service {
     // live values
     double progress = -1, remaining = -1, travelled = 0, speedMs = 0;
     Integer delayMin = null;
+    Integer dueMin = null; // train not here yet: minutes until it is due where you are
     Double etaMin = null;
     int nextIdx = -1, stopsAway = -1;
     String near = "";
@@ -241,15 +242,17 @@ public class TripService extends Service {
         else if (l.hasSpeed()) speedMs = l.getSpeed();
 
         // running late / on time, from the timetable
-        delayMin = null;
+        delayMin = null; dueMin = null;
         Double schedHere = sched(progress);
         if (schedHere != null) {
             if (base < 0) base = pickBase(now, schedHere);
-            delayMin = (int) Math.round((now - base) / 60000.0 - schedHere);
+            int d = (int) Math.round((now - base) / 60000.0 - schedHere);
+            if (d < -15 && speedMs < 2.5) { dueMin = -d; base = -1; }
+            else delayMin = d;
         }
         etaMin = null;
         Double schedDest = noRoute ? null : sched(cum[dest]);
-        if (schedHere != null && schedDest != null) etaMin = Math.max(0, schedDest - schedHere);
+        if (schedHere != null && schedDest != null) etaMin = Math.max(0, schedDest - schedHere) + (dueMin != null ? dueMin : 0);
         if (speedMs > 2.5 && (etaMin == null || local)) etaMin = remaining / speedMs / 60.0;
         else if (etaMin == null && speedMs > 2.5) etaMin = remaining / speedMs / 60.0;
 
@@ -345,6 +348,8 @@ public class TripService extends Service {
         return ta + f * (tb - ta);
     }
 
+    static String fmtDue(int m) { return m >= 60 ? (m / 60) + " h " + (m % 60) + " min" : m + " min"; }
+
     /** The midnight of the train's first day that makes today's delay make sense. */
     long pickBase(long now, double schedMin) {
         Calendar c = Calendar.getInstance();
@@ -355,7 +360,7 @@ public class TripService extends Service {
         for (int k = 0; k < 4; k++) {
             long b = c.getTimeInMillis() - k * 86400000L;
             double delay = (now - b) / 60000.0 - schedMin;
-            double score = delay < -60 ? 1e9 : Math.abs(delay);
+            double score = delay < -720 ? 1e9 : delay < 0 ? -delay * 1.5 : delay;
             if (score < bestScore) { bestScore = score; best = b; }
         }
         return best;
@@ -449,7 +454,7 @@ public class TripService extends Service {
             text = near;
         } else {
             title = d + " · " + Math.round(remaining / 1000.0) + " km" + (etaMin != null ? " · about " + fmtMin(etaMin) : "");
-            text = near + (delayMin != null ? (delayMin > 5 ? " · about " + delayMin + " min late" : delayMin < -5 ? " · running early" : " · on time") : "");
+            text = near + (dueMin != null ? " · train due in " + fmtDue(dueMin) : delayMin != null ? (delayMin > 5 ? " · about " + delayMin + " min late" : delayMin < -5 ? " · running early" : " · on time") : "");
         }
         getSystemService(NotificationManager.class).notify(ID_ONGOING, ongoing(title, text));
         try {
@@ -460,6 +465,7 @@ public class TripService extends Service {
                     .put("alerted", alerted).put("fix", lastFix).put("title", title).put("text", text);
             if (etaMin != null) s.put("eta", etaMin);
             if (delayMin != null) s.put("delay", delayMin);
+            if (dueMin != null) s.put("due", dueMin);
             if (cum != null) { JSONArray c = new JSONArray(); for (double v : cum) c.put(Math.round(v)); s.put("cum", c); }
             prefs(this).edit().putString("state", s.toString()).apply();
         } catch (Exception ignored) { }

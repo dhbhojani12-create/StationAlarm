@@ -66,6 +66,7 @@ html.night .banner{background:#2e1c0c;color:#fdba74}
 .fill .scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .fill .foot{flex:0 0 auto;padding-top:4px}
 .fill .foot .lab{margin-top:10px}
+.tools{display:flex;gap:8px;margin-top:10px}.tools>button{flex:1;min-height:56px;border-radius:14px;background:var(--card);font-weight:700;font-size:13px;line-height:1.2;color:var(--ink)}
 .link{display:block;width:100%;text-align:center;padding:12px;font-weight:600;font-size:14px;color:var(--mut);text-decoration:underline}
 a{color:inherit}
 .dark .icon{background:#ffffff1f;color:var(--onDark)}
@@ -198,10 +199,11 @@ V.trip=()=>{
   const d=t.st[t.dest].n,local=t.kind==='local',noRoute=t.noRoute;
   const waiting=!s.fix;
   let top;
-  if(waiting)top=`<div class="big" style="font-size:30px">Finding your location…</div><div class="small" style="opacity:.8;margin-top:6px">Stay near a window. This can take a minute on a train.</div>`;
-  else if(local&&!noRoute)top=`<div class="big">${s.stopsAway<=0?'Next stop':(s.stopsAway+1)+' stops to go'}</div>`;
-  else top=`<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap"><span class="stat">${fmtKm(s.remaining)}</span>${s.eta!=null?`<span class="stat">${fmtMin(s.eta)}</span>`:''}</div>`;
+  if(waiting)top=`<div class="stat" style="font-size:22px">Finding your location…</div><div class="small" style="opacity:.8;margin-top:4px">Stay near a window. This can take a minute on a train.</div>`;
+  else if(local&&!noRoute)top=`<div class="stat">${s.stopsAway<=0?'Next stop':(s.stopsAway+1)+' stops to go'}</div>`;
+  else top=`<div style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap"><span class="stat">${fmtKm(s.remaining)}</span>${s.eta!=null?`<span class="stat">${fmtMin(s.eta)}</span>`:''}</div>`;
   const ago=s.fix?Math.round((Date.now()-s.fix)/1000):null;
+  const status=s.due!=null?'Train due in '+fmtMin(s.due):s.delay!=null?delayText(s.delay):'';
   let route='';
   if(!noRoute&&s.cum){
     const cum=s.cum,prog=s.progress;let idx=t.st.map((x,i)=>i);
@@ -210,19 +212,23 @@ V.trip=()=>{
     if(local){const passed=idx.filter(i=>cum[i]<=prog);lo=Math.max(0,(passed.length?passed[passed.length-1]:0)-1);hi=Math.min(t.st.length-1,t.dest+1);if(lo>t.dest)lo=Math.max(0,t.dest-2)}
     let html='',meDone=false;
     for(const i of idx){if(i<lo||i>hi)continue;
-      if(!meDone&&cum[i]>prog+50&&prog>=0){meDone=true;html+=`<div class="stop me"><i></i><span><b>${esc(s.near||'You are here')}</b><small class="muted small" style="display:block">${s.speed>1?Math.round(s.speed*3.6)+' km/h':'stopped'}</small></span></div>`}
+      if(!meDone&&cum[i]>prog+50&&prog>=0){meDone=true;html+=`<div class="stop me"><i></i><span><b>${esc(s.near||'You are here')}</b><small class="muted small" style="display:block">${s.due!=null?'waiting for the train':s.speed>1?Math.round(s.speed*3.6)+' km/h':'stopped'}</small></span></div>`}
       const st=t.st[i],cls=i===t.dest?'dest':(cum[i]<=prog?'past':''),bell=(t.extra||[]).includes(i);
       html+=`<button class="stop ${cls}" onclick="toggleExtra(${i})"><i></i><span>${esc(st.n)}${i===t.dest?' <span class="pill acc">your stop</span>':''}${bell?' <span class="bell">· alert</span>':''}</span><span class="t">${st.t>=0?hhmm(st.t):''}</span></button>`}
-    route=`<div class="card" style="padding:6px 0"><div class="route">${html}</div><p class="center muted small" style="margin:6px 12px 8px">Tap a station to be told when you're near it.</p></div>`}
-  return `<div class="card dark" style="margin-top:0;border-radius:24px;padding:16px 18px">
+    route=`<div class="card scroll" id="route" style="padding:6px 0;position:relative"><div class="route">${html}</div><p class="center muted small" style="margin:6px 12px 8px">Tap a station to be told when you're near it.</p></div>`}
+  else route=`<div class="scroll"></div>`;
+  return `<div class="card dark" style="margin-top:0;border-radius:24px;padding:14px 18px">
     <div class="top"><span class="small" style="opacity:.85;font-weight:600">${esc(t.train?t.train+' · ':'')}heading to</span>${nightBtn()}</div>
-    <div class="big" style="margin:2px 0 8px">${esc(d)}</div>${top}
-    <div class="chips" style="margin-top:10px">${s.delay!=null?`<span class="pill acc">${delayText(s.delay)}</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}<span class="pill">No network needed</span></div></div>
-  ${!waiting?`<div class="card"><div class="lab" style="margin:0 0 4px">Where am I</div><b style="font-size:19px">${esc(s.near||'…')}</b><div class="muted small">${s.speed>1?'Moving at about '+Math.round(s.speed*3.6)+' km/h':'Not moving right now'}${ago!=null?' · updated '+(ago<60?ago+' s':Math.round(ago/60)+' min')+' ago':''}</div></div>`:''}
+    <div class="big" style="font-size:32px;margin:0 0 6px">${esc(d)}</div>${top}
+    ${status||s.alerted?`<div class="chips" style="margin-top:8px">${status?`<span class="pill acc">${status}</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}</div>`:''}
+    ${!waiting?`<div class="small" style="opacity:.75;margin-top:8px">${s.due!=null?'Waiting for the train':s.speed>1?'Moving at about '+Math.round(s.speed*3.6)+' km/h':'Not moving right now'}${ago!=null?' · updated '+(ago<60?ago+' s':Math.round(ago/60)+' min')+' ago':''} · no network needed</div>`:''}</div>
   ${route}
-  <div class="row"><button class="btn" onclick="go('messages')">Family messages</button>${t.train?`<button class="btn" onclick="go('timetable')">Timetable</button>`:''}</div>
-  <div class="row"><button class="btn" onclick="go('help')">Help card</button><button class="btn" onclick="toggleShare()">${t.share?'Family link: on':'Share live with family'}</button></div>
-  <button class="btn warn" onclick="if(confirm('Stop this trip?')){SA.stop();setTimeout(()=>{stack=[];go('home',false)},400)}">Stop trip</button>`};
+  <div class="foot"><div class="tools">
+    <button onclick="go('messages')">Family<br>messages</button>
+    ${t.train?`<button onclick="go('timetable')">Time-<br>table</button>`:''}
+    <button onclick="go('help')">Help<br>card</button>
+    <button onclick="toggleShare()">${t.share?'Family link<br>on':'Share<br>live'}</button></div>
+  <button class="btn warn" style="min-height:48px" onclick="if(confirm('Stop this trip?')){SA.stop();setTimeout(()=>{stack=[];go('home',false)},400)}">Stop trip</button></div>`};
 window.toggleExtra=function(i){const t=JSON.parse(SA.trip());if(i===t.dest)return;t.extra=t.extra||[];const k=t.extra.indexOf(i);if(k>=0)t.extra.splice(k,1);else t.extra.push(i);SA.updateTrip(JSON.stringify(t));SA.toast(k>=0?'Alert removed':'You will be told when you are near '+t.st[i].n);render()};
 
 /* timetable */
@@ -351,7 +357,8 @@ function takeLookup(){if(!hasSA)return false;const r=SA.takeLookup();if(!r)retur
 
 /* ---------- render loop ---------- */
 function lastArrived(){try{const l=SA.last();return !!(l&&JSON.parse(l).arrived)}catch(e){return false}}
-function render(){clearInterval(timer);app.classList.toggle('fill',['local','long','anystation'].includes(view));app.innerHTML=(V[view]||V.home)();if(view==='trip')timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const y=scrollY;app.innerHTML=V.trip();scrollTo(0,y)},3000)}
+function render(){clearInterval(timer);app.classList.toggle('fill',['local','long','anystation','trip'].includes(view));app.innerHTML=(V[view]||V.home)();if(view==='trip'){const r=$('#route'),me=r&&r.querySelector('.stop.me');if(me)r.scrollTop=Math.max(0,me.offsetTop-r.clientHeight/3);
+  timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const o=$('#route'),y=o?o.scrollTop:0;app.innerHTML=V.trip();const n=$('#route');if(n)n.scrollTop=y},3000)}}
 window.onResumeApp=function(){if(!hasSA)return;if(takeLookup())return;const s=JSON.parse(SA.state());if(s.active&&SA.trip()){if(view!=='trip'&&view!=='messages'&&view!=='timetable'){stack=[];go('trip',false)}else render()}else if(lastArrived()&&view!=='arrived'){stack=[];go('arrived',false)}else if(view==='trip'){stack=[];go('home',false)}else render()};
 syncSaved();
 (function boot(){if(!hasSA){render();return}const s=JSON.parse(SA.state());if(s.active&&SA.trip())view='trip';else if(lastArrived())view='arrived';render();const sv=SA.takePendingSaved();if(sv)startSaved(sv);const tk=SA.takePendingTicket&&SA.takePendingTicket();if(tk)openTicket(tk)})();
