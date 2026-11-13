@@ -62,6 +62,11 @@ html.night .banner{background:#2e1c0c;color:#fdba74}
 .check input{width:24px;height:24px}
 .msg{background:var(--soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14.5px}
 .hide{display:none!important}
+.fill{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:14px}
+.fill .scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.fill .foot{flex:0 0 auto;padding-top:4px}
+.fill .foot .lab{margin-top:10px}
+.link{display:block;width:100%;text-align:center;padding:12px;font-weight:600;font-size:14px;color:var(--mut);text-decoration:underline}
 a{color:inherit}
 .dark .icon{background:#ffffff1f;color:var(--onDark)}
 </style>
@@ -134,42 +139,41 @@ V.local=()=>{
   const line=LINES.find(l=>l.id===L.line)||LINES[0];
   const q=L.q.trim().toLowerCase();
   const sts=line.st.map((s,i)=>({s,i})).filter(x=>!q||x.s[0].toLowerCase().includes(q));
-  const al=[['stops',1,'1 stop before'],['stops',2,'2 stops before'],['km',1.5,'1.5 km away']];
-  return `${head('Local trip','Pick your stop. Your direction is worked out by itself.')}
-  <div class="chips" style="margin-top:14px">${LINES.map(l=>`<button class="chip ${l.id===line.id?'on':''}" onclick="L.line='${l.id}';L.dest=null;render()">${esc(l.name)}</button>`).join('')}</div>
-  <div class="sub" style="margin:8px 2px 0">${esc(line.note)}</div>
-  <input type="search" placeholder="Search station" aria-label="Search station" value="${esc(L.q)}" oninput="L.q=this.value;renderList()" style="margin-top:10px">
-  <div class="list" id="stlist" style="max-height:44vh;overflow:auto">${sts.map(x=>`<button class="item ${L.dest===x.i?'sel':''}" onclick="L.dest=${x.i};render()"><b>${esc(x.s[0])}</b>${L.dest===x.i?'<span>✓</span>':''}</button>`).join('')||'<div class="item muted">No station with that name on this line</div>'}</div>
-  <div class="lab">Notify me</div>
-  <div class="chips">${al.map(a=>`<button class="chip ${L.alert.type===a[0]&&L.alert.v===a[1]?'on':''}" onclick="L.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
-  <input type="text" placeholder="Save as (optional), e.g. Home" aria-label="Save trip as" value="${esc(L.save)}" oninput="L.save=this.value" style="margin-top:14px">
-  <button class="btn pri" ${L.dest==null?'disabled style="opacity:.5"':''} onclick="startLocal()">${L.dest==null?'Pick a station':'Start · '+esc(line.st[L.dest][0])}</button>
-  <p class="center muted small">Location is used only during this trip.</p>`};
-window.renderList=()=>{const el=$('#stlist');const y=el?el.scrollTop:0;render();const n=$('#stlist');if(n)n.scrollTop=y;const i=document.querySelector('input[type=search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}};
+  const al=[['stops',1,'1 stop'],['stops',2,'2 stops'],['km',1.5,'1.5 km']];
+  return `<div>${head('Local trip','Pick your stop. Direction is worked out by itself.')}
+  <div class="chips" style="margin-top:12px">${LINES.map(l=>`<button class="chip ${l.id===line.id?'on':''}" onclick="L.line='${l.id}';L.dest=null;L.q='';render()">${esc(l.name)}</button>`).join('')}</div>
+  <input type="search" placeholder="Search ${esc(line.note)}" aria-label="Search station" value="${esc(L.q)}" oninput="L.q=this.value;renderList()" style="margin-top:10px"></div>
+  <div class="list scroll" id="stlist">${sts.map(x=>`<button class="item ${L.dest===x.i?'sel':''}" onclick="pickLocal(${x.i})"><b>${esc(x.s[0])}</b>${L.dest===x.i?'<span>✓</span>':''}</button>`).join('')||'<div class="item muted">No station with that name on this line</div>'}</div>
+  <div class="foot"><div class="lab">Notify me before</div>
+  <div class="chips">${al.map(a=>`<button class="chip ${L.alert.type===a[0]&&L.alert.v===a[1]?'on':''}" onclick="L.alert={type:'${a[0]}',v:${a[1]}};keep()">${a[2]}</button>`).join('')}</div>
+  <input type="text" placeholder="Save as (optional), e.g. Home" aria-label="Save trip as" value="${esc(L.save)}" oninput="L.save=this.value" style="margin-top:10px;height:48px">
+  <button class="btn pri" ${L.dest==null?'disabled style="opacity:.5"':''} onclick="startLocal()">${L.dest==null?'Pick a station':'Start · '+esc(line.st[L.dest][0])}</button></div>`};
+window.pickLocal=i=>{L.dest=i;keep()};
+/* re-render but keep the list where it was */
+window.keep=function(){const el=document.querySelector('.scroll');const y=el?el.scrollTop:0;render();const n=document.querySelector('.scroll');if(n)n.scrollTop=y};
+window.renderList=()=>{keep();const i=document.querySelector('input[type=search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}};
 function startLocal(){const line=LINES.find(l=>l.id===L.line);if(L.dest==null)return;
   startTrip({kind:'local',line:line.id,lineName:line.name,st:line.st.map(s=>({n:s[0],la:s[1],lo:s[2]})),dest:L.dest,alert:L.alert,extra:[]},L.save.trim()||null)}
 
 /* long */
 let T={num:'',train:null,dest:null,showAll:false,alert:{type:'min',v:30},err:'',save:''};
 V.long=()=>{
-  const al=[['min',30,'30 min before'],['min',45,'45 min before'],['km',20,'20 km before']];
+  const al=[['min',30,'30 min'],['min',45,'45 min'],['km',20,'20 km']];
   const t=T.train;
-  let stops='';
-  if(t){const list=t.stops.map((s,i)=>({s,i})).filter(x=>T.showAll||x.s.h||x.i===T.dest);
-    stops=`<div class="card dark"><b style="font-size:16px">${esc(t.name)}</b><div class="small" style="opacity:.8;margin-top:2px">${esc(t.num)} · ${t.stops.filter(s=>s.h).length} stops · tap where you get off</div></div>
-    <div class="list" style="max-height:46vh;overflow:auto">${list.map(x=>`<button class="item ${T.dest===x.i?'sel':''}" onclick="T.dest=${x.i};render()"><span><b style="font-weight:${x.s.h?700:500}">${esc(x.s.n)}</b><small>${x.s.h?'':'passes through · '}${hhmm(x.s.t)}</small></span>${T.dest===x.i?'✓':''}</button>`).join('')}</div>
-    <button class="btn" style="min-height:44px;font-size:14px" onclick="T.showAll=!T.showAll;render()">${T.showAll?'Show only stops':'Show every station it passes'}</button>`}
-  return `${head('Long trip','Type your train number, then pick where you get off.')}
-  <div class="lab">Train number</div>
-  <div class="row"><input type="number" inputmode="numeric" placeholder="e.g. 12268" aria-label="Train number" value="${esc(T.num)}" oninput="T.num=this.value" onkeydown="if(event.key==='Enter')findTrain()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="findTrain()">Find</button></div>
+  const someMinor=t&&t.stops.some(s=>!s.h);
+  const list=t?t.stops.map((s,i)=>({s,i})).filter(x=>T.showAll||x.s.h||x.i===T.dest):[];
+  return `<div>${head('Long trip','Type your train number, then pick where you get off.')}
+  <div class="row" style="margin-top:12px"><input type="number" inputmode="numeric" placeholder="Train number, e.g. 12009" aria-label="Train number" value="${esc(T.num)}" oninput="T.num=this.value" onkeydown="if(event.key==='Enter')findTrain()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="findTrain()">Find</button></div>
   ${T.err?`<div class="banner">${esc(T.err)}</div>`:''}
-  ${stops}
-  ${T.err&&T.num?`<button class="btn" onclick="SA.lookup('ntes',T.num.trim())">Look up ${esc(T.num)} on NTES</button>`:''}
-  <button class="btn" onclick="go('anystation')">Train not found? Pick your stop from all stations</button>
-  ${t?`<div class="lab">Notify me</div><div class="chips">${al.map(a=>`<button class="chip ${T.alert.type===a[0]&&T.alert.v===a[1]?'on':''}" onclick="T.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
-  <input type="text" placeholder="Save as (optional), e.g. Rajkot" aria-label="Save trip as" value="${esc(T.save)}" oninput="T.save=this.value" style="margin-top:14px">
-  <button class="btn pri" ${T.dest==null?'disabled style="opacity:.5"':''} onclick="startLong()">${T.dest==null?'Pick your stop':'Start · '+esc(t.stops[T.dest].n)}</button>`:''}
-  <p class="center muted small">Timetables are from an open 2016 railway dataset stored on this phone. New trains or changed stops may be missing.</p>`};
+  ${t?`<div class="card dark" style="padding:12px 16px"><b>${esc(t.name)}</b><div class="small" style="opacity:.8">${t.stops.filter(s=>s.h).length} stops · tap where you get off</div></div>`:''}</div>
+  ${t?`<div class="list scroll">${list.map(x=>`<button class="item ${T.dest===x.i?'sel':''}" onclick="T.dest=${x.i};keep()"><span><b style="font-weight:${x.s.h?700:500}">${esc(x.s.n)}</b><small>${x.s.h?'':'passes through · '}${hhmm(x.s.t)}</small></span>${T.dest===x.i?'✓':''}</button>`).join('')}</div>`
+   :`<div class="scroll">${T.err&&T.num?`<button class="btn" onclick="SA.lookup('ntes',T.num.trim())">Look up ${esc(T.num)} on NTES</button>`:''}
+     <button class="btn" onclick="go('anystation')">Pick your stop from all stations</button>
+     <p class="center muted small">Train timetables are from an open 2016 dataset on this phone. If your train is missing or has changed, use NTES.</p></div>`}
+  ${t?`<div class="foot">${someMinor?`<button class="link" onclick="T.showAll=!T.showAll;keep()">${T.showAll?'Show only stops':'Show every station it passes'}</button>`:''}
+  <div class="lab">Notify me before</div><div class="chips">${al.map(a=>`<button class="chip ${T.alert.type===a[0]&&T.alert.v===a[1]?'on':''}" onclick="T.alert={type:'${a[0]}',v:${a[1]}};keep()">${a[2]}</button>`).join('')}</div>
+  <input type="text" placeholder="Save as (optional), e.g. Rajkot" aria-label="Save trip as" value="${esc(T.save)}" oninput="T.save=this.value" style="margin-top:10px;height:48px">
+  <button class="btn pri" ${T.dest==null?'disabled style="opacity:.5"':''} onclick="startLong()">${T.dest==null?'Pick your stop':'Start · '+esc(t.stops[T.dest].n)}</button></div>`:''}`};
 window.findTrain=function(){const n=T.num.trim();if(!n)return;const r=SA.train(n);T.dest=null;T.showAll=false;if(!r){T.train=null;T.err='Train '+n+' is not in the stored timetable. Look it up on NTES, or pick your stop from all stations.'}else{T.train=JSON.parse(r);T.err=''}render()};
 function startLong(){const t=T.train;if(!t||T.dest==null)return;
   startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(s=>({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h})),dest:T.dest,alert:T.alert,extra:[]},T.save.trim()||null)}
@@ -177,14 +181,13 @@ function startLong(){const t=T.train;if(!t||T.dest==null)return;
 /* any station */
 let A={q:'',res:[],sel:null,alert:{type:'min',v:30}};
 V.anystation=()=>{
-  const al=[['min',30,'30 min before'],['km',20,'20 km before'],['km',5,'5 km before']];
-  return `${head('Any station','Works for any train. Uses your location only.')}
-  <input type="search" placeholder="Station name or code, e.g. Borivali or BVI" aria-label="Station" value="${esc(A.q)}" oninput="A.q=this.value;searchAny()" style="margin-top:14px">
-  <div class="list" id="anyres">${anyList()}</div>
-  <div class="lab">Notify me</div><div class="chips">${al.map(a=>`<button class="chip ${A.alert.type===a[0]&&A.alert.v===a[1]?'on':''}" onclick="A.alert={type:'${a[0]}',v:${a[1]}};render()">${a[2]}</button>`).join('')}</div>
-  <button class="btn pri" ${!A.sel?'disabled style="opacity:.5"':''} onclick="startAny()">${A.sel?'Start · '+esc(A.sel.n):'Pick a station'}</button>
-  <p class="center muted small">Without a timetable, time left comes from the train's speed, and "late or on time" isn't shown.</p>`};
-function anyList(){return A.res.map((s,i)=>`<button class="item ${A.sel&&A.sel.c===s.c?'sel':''}" onclick="A.sel=A.res[${i}];render()"><span><b>${esc(s.n)}</b><small>${esc(s.c)}${s.s?' · '+esc(s.s):''}</small></span></button>`).join('')||`<div class="item muted">${A.q.length<2?'Type at least 2 letters':'No match'}</div>`}
+  const al=[['min',30,'30 min'],['km',20,'20 km'],['km',5,'5 km']];
+  return `<div>${head('Any station','Works for any train. Uses your location only.')}
+  <input type="search" placeholder="Station name or code, e.g. Borivali or BVI" aria-label="Station" value="${esc(A.q)}" oninput="A.q=this.value;searchAny()" style="margin-top:12px"></div>
+  <div class="list scroll" id="anyres">${anyList()}</div>
+  <div class="foot"><div class="lab">Notify me before</div><div class="chips">${al.map(a=>`<button class="chip ${A.alert.type===a[0]&&A.alert.v===a[1]?'on':''}" onclick="A.alert={type:'${a[0]}',v:${a[1]}};keep()">${a[2]}</button>`).join('')}</div>
+  <button class="btn pri" ${!A.sel?'disabled style="opacity:.5"':''} onclick="startAny()">${A.sel?'Start · '+esc(A.sel.n):'Pick a station'}</button></div>`};
+function anyList(){return A.res.map((s,i)=>`<button class="item ${A.sel&&A.sel.c===s.c?'sel':''}" onclick="A.sel=A.res[${i}];keep()"><span><b>${esc(s.n)}</b><small>${esc(s.c)}${s.s?' · '+esc(s.s):''}</small></span></button>`).join('')||`<div class="item muted">${A.q.length<2?'Type at least 2 letters':'No match'}</div>`}
 window.searchAny=function(){A.res=JSON.parse(SA.search(A.q));$('#anyres').innerHTML=anyList()};
 function startAny(){if(!A.sel)return;startTrip({kind:'long',noRoute:true,st:[{n:A.sel.n,la:A.sel.la,lo:A.sel.lo}],dest:0,alert:A.alert,extra:[]})}
 
@@ -348,7 +351,7 @@ function takeLookup(){if(!hasSA)return false;const r=SA.takeLookup();if(!r)retur
 
 /* ---------- render loop ---------- */
 function lastArrived(){try{const l=SA.last();return !!(l&&JSON.parse(l).arrived)}catch(e){return false}}
-function render(){clearInterval(timer);app.innerHTML=(V[view]||V.home)();if(view==='trip')timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const y=scrollY;app.innerHTML=V.trip();scrollTo(0,y)},3000)}
+function render(){clearInterval(timer);app.classList.toggle('fill',['local','long','anystation'].includes(view));app.innerHTML=(V[view]||V.home)();if(view==='trip')timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const y=scrollY;app.innerHTML=V.trip();scrollTo(0,y)},3000)}
 window.onResumeApp=function(){if(!hasSA)return;if(takeLookup())return;const s=JSON.parse(SA.state());if(s.active&&SA.trip()){if(view!=='trip'&&view!=='messages'&&view!=='timetable'){stack=[];go('trip',false)}else render()}else if(lastArrived()&&view!=='arrived'){stack=[];go('arrived',false)}else if(view==='trip'){stack=[];go('home',false)}else render()};
 syncSaved();
 (function boot(){if(!hasSA){render();return}const s=JSON.parse(SA.state());if(s.active&&SA.trip())view='trip';else if(lastArrived())view='arrived';render();const sv=SA.takePendingSaved();if(sv)startSaved(sv);const tk=SA.takePendingTicket&&SA.takePendingTicket();if(tk)openTicket(tk)})();
