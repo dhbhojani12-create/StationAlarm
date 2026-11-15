@@ -132,6 +132,21 @@ public class LookupActivity extends Activity {
         JSONObject r = new JSONObject();
         Matcher m = Pattern.compile("\\b(\\d{10})\\b").matcher(text);
         if (m.find()) r.put("pnr", m.group(1)); else if (arg.matches("\\d{10}")) r.put("pnr", arg);
+        // the official page: read its tables by their headings
+        if (rows != null) {
+            List<String> rl = new ArrayList<>();
+            for (int i = 0; i < rows.length(); i++) rl.add(rows.getString(i));
+            PnrParser.Result pr = PnrParser.parse(rl);
+            if (pr.f.containsKey("train")) {
+                for (Map.Entry<String, String> e : pr.f.entrySet()) r.put(e.getKey(), e.getValue());
+                if (r.has("trainName")) r.put("trainName", titleCase(r.getString("trainName")));
+                JSONArray pax = new JSONArray();
+                for (String[] x : pr.pax) pax.put(new JSONObject().put("booked", x[0]).put("now", x[1]));
+                r.put("pax", pax);
+                r.put("checked", System.currentTimeMillis());
+                return r;
+            }
+        }
         m = Pattern.compile("\\b(\\d{5})\\b\\s*[-/]?\\s*([A-Z][A-Za-z .&-]{3,40}(?:EXP|EXPRESS|MAIL|SF|RAJDHANI|SHATABDI|DURONTO|SPL|SPECIAL|VANDE BHARAT|TEJAS|GARIB RATH)?)").matcher(text);
         if (m.find()) { r.put("train", m.group(1)); r.put("trainName", m.group(2).trim()); }
         m = Pattern.compile("\\b(\\d{1,2})[-/ ](\\d{1,2}|[A-Za-z]{3})[-/ ](\\d{4})\\b").matcher(text);
