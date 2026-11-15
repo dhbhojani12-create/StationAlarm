@@ -91,10 +91,17 @@ public class LookupActivity extends Activity {
 
     void prefill() {
         if (arg.isEmpty()) return;
-        String sel = "pnr".equals(mode) ? "input[maxlength='10'],input[name*='pnr' i],input[id*='pnr' i]" : "input[name*='train' i],input[id*='train' i]";
-        web.evaluateJavascript("(function(){var e=document.querySelector(\"" + sel + "\");if(!e||e.value)return;" +
+        String sel = "pnr".equals(mode)
+                ? "input[placeholder*='PNR' i],input[name*='pnr' i],input[id*='pnr' i],input[maxlength='10']"
+                : "input[placeholder*='train' i],input[name*='train' i],input[id*='train' i]";
+        // the page draws its form late, so keep looking for the box for ~20 s
+        web.evaluateJavascript("(function(){if(window.__saFill)return;window.__saFill=1;var n=0;var t=setInterval(function(){" +
+                "if(++n>40){clearInterval(t);return}" +
+                "var l=document.querySelectorAll(\"" + sel + "\"),e=null;for(var i=0;i<l.length;i++){if(l[i].offsetParent!==null){e=l[i];break}}" +
+                "if(!e)return;clearInterval(t);if(e.value)return;" +
                 "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e," + JSONObject.quote(arg) + ");" +
-                "e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})()", null);
+                "e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));e.dispatchEvent(new Event('blur',{bubbles:true}))" +
+                "},500)})()", null);
     }
 
     static String unquote(String js) {
