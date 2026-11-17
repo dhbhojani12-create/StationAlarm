@@ -100,6 +100,11 @@ const fmtMin=m=>{m=Math.round(m);return m<60?m+' min':Math.floor(m/60)+' h '+(m%
 const fmtKm=m=>m<1000?Math.round(m)+' m':(m<10000?(m/1000).toFixed(1):Math.round(m/1000))+' km';
 const hhmm=t=>{if(t==null||t<0)return'';const m=t%1440,h=Math.floor(m/60),mi=m%60;return((h+11)%12+1)+':'+String(mi).padStart(2,'0')+(h<12?' am':' pm')+(t>=1440?' (day '+(Math.floor(t/1440)+1)+')':'')};
 const clock=()=>{const d=new Date();let h=d.getHours();const m=String(d.getMinutes()).padStart(2,'0');return((h+11)%12+1)+':'+m+(h<12?' am':' pm')};
+const ageText=ms=>{const m=Math.max(0,Math.round((Date.now()-ms)/60000));return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago'};
+const delayExact=d=>d==null?'':d>0?d+' min late':d<0?(-d)+' min early':'on time';
+/* what NTES said about where the train is (matched by station name, because the stop lists can differ) */
+function liveLine(l){if(!l)return'';if(!l.has)return'No live times on NTES yet (the train may not have started)';return(l.atStation?'At ':'Left ')+l.name+(l.delay!=null?' · '+delayExact(l.delay):'')+' · '+ageText(l.at)}
+const tripStop=s=>Object.assign({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h},s.pf?{pf:s.pf}:{});
 function delayText(d){if(d==null)return'';if(d>5)return'About '+fmtMin(d)+' late';if(d<-5)return'Running early';return'On time'}
 
 /* ---------- trip building ---------- */
@@ -127,6 +132,7 @@ V.home=()=>{
   ${saved.length?`<div class="lab">Saved trips · one tap</div><div class="tiles">${saved.slice(0,6).map(s=>`<button class="tile" onclick="startSaved('${s.id}')"><b>${esc(s.name)}</b><span>${esc(s.sub)}</span></button>`).join('')}</div>`:''}
   <div class="row" style="margin-top:14px"><button class="mode dark" onclick="go('local')"><b>Local trip</b><span>Western line and Metro</span></button><button class="mode" style="background:var(--acc);color:#0f172a" onclick="go('long')"><b>Long trip</b><span>Train number or any station</span></button></div>
   <div class="list">
+    <button class="item" onclick="go('track')"><b>Track a train</b><span class="muted small">Where is it now ›</span></button>
     <button class="item" onclick="go('pnr')"><b>PNR status</b><span class="muted small">Check ›</span></button>
     <button class="item" onclick="go('tickets')"><b>My tickets</b><span class="muted small">${upcoming().length} upcoming ›</span></button>
     <button class="item" onclick="go('log')"><b>Travel log</b><span class="muted small">${JSON.parse(hasSA?SA.log():'[]').length} trips ›</span></button>
@@ -166,8 +172,8 @@ V.long=()=>{
   return `<div>${head('Long trip','Type your train number, then pick where you get off.')}
   <div class="row" style="margin-top:12px"><input type="number" inputmode="numeric" placeholder="Train number, e.g. 12009" aria-label="Train number" value="${esc(T.num)}" oninput="T.num=this.value" onkeydown="if(event.key==='Enter')findTrain()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="findTrain()">Find</button></div>
   ${T.err?`<div class="banner">${esc(T.err)}</div>`:''}
-  ${t?`<div class="card dark" style="padding:12px 16px"><b>${esc(t.name)}</b><div class="small" style="opacity:.8">${t.stops.filter(s=>s.h).length} stops · tap where you get off</div></div>`:''}</div>
-  ${t?`<div class="list scroll">${list.map(x=>`<button class="item ${T.dest===x.i?'sel':''}" onclick="T.dest=${x.i};keep()"><span><b style="font-weight:${x.s.h?700:500}">${esc(x.s.n)}</b><small>${x.s.h?'':'passes through · '}${hhmm(x.s.t)}</small></span>${T.dest===x.i?'✓':''}</button>`).join('')}</div>`
+  ${t?`<div class="card dark" style="padding:12px 16px"><b>${esc(t.name)}</b><div class="small" style="opacity:.8">${t.stops.filter(s=>s.h).length} stops · tap where you get off</div>${t.live?`<div class="small" style="margin-top:6px;font-weight:700">${esc(liveLine(t.live))}</div>`:''}<button class="link" style="color:inherit;padding:8px 0 0;text-align:left" onclick="SA.lookup('ntes',T.num.trim())">Get live status and platforms from NTES ›</button></div>`:''}</div>
+  ${t?`<div class="list scroll">${list.map(x=>`<button class="item ${T.dest===x.i?'sel':''}" onclick="T.dest=${x.i};keep()"><span><b style="font-weight:${x.s.h?700:500}">${esc(x.s.n)}</b><small>${x.s.h?'':'passes through · '}${hhmm(x.s.t)}${x.s.pf?' · Platform '+esc(x.s.pf):''}</small></span>${T.dest===x.i?'✓':''}</button>`).join('')}</div>`
    :`<div class="scroll">${T.err&&T.num?`<button class="btn" onclick="SA.lookup('ntes',T.num.trim())">Look up ${esc(T.num)} on NTES</button>`:''}
      <button class="btn" onclick="go('anystation')">Pick your stop from all stations</button>
      <p class="center muted small">Train timetables are from an open 2016 dataset on this phone. If your train is missing or has changed, use NTES.</p></div>`}
@@ -177,7 +183,7 @@ V.long=()=>{
   <button class="btn pri" ${T.dest==null?'disabled style="opacity:.5"':''} onclick="startLong()">${T.dest==null?'Pick your stop':'Start · '+esc(t.stops[T.dest].n)}</button></div>`:''}`};
 window.findTrain=function(){const n=T.num.trim();if(!n)return;const r=SA.train(n);T.dest=null;T.showAll=false;if(!r){T.train=null;T.err='Train '+n+' is not in the stored timetable. Look it up on NTES, or pick your stop from all stations.'}else{T.train=JSON.parse(r);T.err=''}render()};
 function startLong(){const t=T.train;if(!t||T.dest==null)return;
-  startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(s=>({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h})),dest:T.dest,alert:T.alert,extra:[]},T.save.trim()||null)}
+  startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(tripStop),dest:T.dest,alert:T.alert,extra:[],live:t.live},T.save.trim()||null)}
 
 /* any station */
 let A={q:'',res:[],sel:null,alert:{type:'min',v:30}};
@@ -203,7 +209,7 @@ V.trip=()=>{
   else if(local&&!noRoute)top=`<div class="stat">${s.stopsAway<=0?'Next stop':(s.stopsAway+1)+' stops to go'}</div>`;
   else top=`<div style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap"><span class="stat">${fmtKm(s.remaining)}</span>${s.eta!=null?`<span class="stat">${fmtMin(s.eta)}</span>`:''}</div>`;
   const ago=s.fix?Math.round((Date.now()-s.fix)/1000):null;
-  const status=s.due!=null?'Train due in '+fmtMin(s.due):s.delay!=null?delayText(s.delay):'';
+  const status=s.due!=null?'Train due in '+fmtMin(s.due):s.delay!=null?delayText(s.delay)+(s.delaySrc==='ntes'?' (NTES)':''):'';
   let route='';
   if(!noRoute&&s.cum){
     const cum=s.cum,prog=s.progress;let idx=t.st.map((x,i)=>i);
@@ -220,7 +226,9 @@ V.trip=()=>{
   return `<div class="card dark" style="margin-top:0;border-radius:24px;padding:14px 18px">
     <div class="top"><span class="small" style="opacity:.85;font-weight:600">${esc(t.train?t.train+' · ':'')}heading to</span>${nightBtn()}</div>
     <div class="big" style="font-size:32px;margin:0 0 6px">${esc(d)}</div>${top}
-    ${status||s.alerted?`<div class="chips" style="margin-top:8px">${status?`<span class="pill acc">${status}</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}</div>`:''}
+    ${status||s.alerted||s.destPf?`<div class="chips" style="margin-top:8px">${status?`<span class="pill acc">${status}</span>`:''}${s.destPf?`<span class="pill">Platform ${esc(s.destPf)} expected</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}</div>`:''}
+    ${t.live&&!local?`<div class="small" style="opacity:.85;margin-top:8px">NTES: ${esc(liveLine(t.live))}</div>`:''}
+    ${t.train&&!local?`<button class="link" style="color:inherit;padding:8px 0 0;text-align:left" onclick="SA.lookup('ntes','${esc(t.train)}')">Refresh train status from NTES ›</button>`:''}
     ${!waiting?`<div class="small" style="opacity:.75;margin-top:8px">${s.due!=null?'Waiting for the train':s.speed>1?'Moving at about '+Math.round(s.speed*3.6)+' km/h':'Not moving right now'}${ago!=null?' · updated '+(ago<60?ago+' s':Math.round(ago/60)+' min')+' ago':''} · no network needed</div>`:''}</div>
   ${route}
   <div class="foot"><div class="tools">
@@ -244,7 +252,7 @@ function msgs(){const t=JSON.parse((hasSA&&(SA.trip()||SA.last()))||'{}');const 
   const eta=s.eta!=null?(()=>{const a=new Date(Date.now()+s.eta*60000);let h=a.getHours();return((h+11)%12+1)+':'+String(a.getMinutes()).padStart(2,'0')+(h<12?' am':' pm')})():null;
   return [['Boarded','Boarded'+(tr?' '+tr:'')+'. Heading to '+d+'.'],
     ['30 minutes away','About '+(s.eta!=null?fmtMin(s.eta):'30 minutes')+' from '+d+'.'],
-    ['Pickup details',(tr?'Train '+(t.train||'')+', ':'')+'reaching '+d+(eta?' around '+eta:'')+'.'],
+    ['Pickup details',(tr?'Train '+(t.train||'')+', ':'')+'reaching '+d+(t.st&&t.st[t.dest].pf?' (platform '+t.st[t.dest].pf+')':'')+(eta?' around '+eta:'')+(s.delay>5?', running about '+fmtMin(s.delay)+' late':'')+'.'],
     ['Reached','Reached '+d+' safely, '+clock()+'.']]}
 V.messages=()=>`${head('Family messages','Already written. You pick the group and press Send.')}
   ${msgs().map((m,i)=>`<div class="card"><b>${m[0]}</b><div class="msg">${esc(m[1])}</div><button class="btn pri" style="margin-top:4px;min-height:46px" onclick="SA.share(msgs()[${i}][1])">Open in WhatsApp</button></div>`).join('')}`;
@@ -296,10 +304,34 @@ const saveTickets=l=>LS.set('tickets',l);
 function depMs(k){if(!k.date||!k.time)return null;const d=new Date(k.date+'T'+k.time+':00');return isNaN(d)?null:d.getTime()}
 const upcoming=()=>tickets().filter(k=>{const d=depMs(k);return d==null||d>Date.now()-6*3600000});
 function stName(c){if(!c)return'';if(!hasSA)return c;const r=JSON.parse(SA.search(c));const m=r.find(x=>x.c===c.toUpperCase());return m?m.n:c}
-function remindTicket(k){if(!hasSA)return;const d=depMs(k);if(!d){SA.unremind(k.id);return}
+function remindTicket(k){if(!hasSA)return;const d=depMs(k);if(!d){SA.unremind(k.id);SA.unremind(k.id+':c');return}
+  /* not confirmed yet: remind to look again around the time the chart is made (about 4 h before departure) */
+  if(k.pax&&k.pax.some(p=>stKind(p.now)!=='cnf')&&d-4*3600000>Date.now())SA.remind(k.id+':c',d-4*3600000,'Chart is about to be made','Check PNR'+(k.pnr?' ending '+k.pnr.slice(-4):'')+' for your final status.');else SA.unremind(k.id+':c');
   SA.remind(k.id,d-90*60000,'Your train leaves in 1 h 30 min',[k.coach?'Coach '+k.coach:'',k.berth?'Berth '+k.berth:'',k.cls||''].filter(Boolean).join(' · ')+'\n'+(k.train?'Train '+k.train+' ':'')+'from '+(k.fromName||k.from||'')+' at '+hhmm(+k.time.slice(0,2)*60+ +k.time.slice(3)))}
-function upsertTicket(k){const l=tickets();const i=l.findIndex(x=>(k.pnr&&x.pnr===k.pnr)||x.id===k.id);if(i>=0)l[i]=Object.assign(l[i],k);else{k.id=k.id||'t'+Date.now();l.unshift(k)}saveTickets(l);const kk=l.find(x=>x.id===(i>=0?l[i].id:k.id));remindTicket(kk);return kk}
-function fromPnr(r){const k={pnr:r.pnr,train:r.train,trainName:r.trainName,cls:r.cls,chart:r.chart,pax:r.pax,coach:r.coach,berth:r.berth,from:r.from,to:r.to,checked:r.checked};
+function upsertTicket(k){const l=tickets();const i=l.findIndex(x=>(k.pnr&&x.pnr===k.pnr)||x.id===k.id);
+  if(i>=0){
+    if(k.pax&&l[i].pax&&k.checked){const d=diffPnr(l[i],k);if(d.length){k.changes=d;k.changedAt=k.checked}}
+    if(k.pax&&k.checked){const h=(l[i].hist||[]).concat([{at:k.checked,pax:k.pax.map(p=>p.now),chart:k.chart||''}]);k.hist=h.slice(-20)}
+    l[i]=Object.assign(l[i],k)}
+  else{k.id=k.id||'t'+Date.now();if(k.pax&&k.checked)k.hist=[{at:k.checked,pax:k.pax.map(p=>p.now),chart:k.chart||''}];l.unshift(k)}
+  saveTickets(l);const kk=l.find(x=>x.id===(i>=0?l[i].id:k.id));remindTicket(kk);syncNext();return kk}
+/* one line for the home-screen widget: the next ticket */
+function syncNext(){if(!hasSA||!SA.setNext)return;const l=upcoming().filter(k=>depMs(k)!=null).sort((a,b)=>depMs(a)-depMs(b));const k=l[0]||upcoming()[0];
+  if(!k){SA.setNext('');return}const p=k.pax&&k.pax[0];const sd=p&&seat(p.now);
+  SA.setNext(['Next: '+(k.train||'ticket'),k.date&&new Date(k.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}),p?(sd?sd.coach+'/'+sd.berth:p.now):''].filter(Boolean).join(' · '))}
+/* status words -> kind and rank (lower is better), so a change can be called an improvement or not */
+const stKind=s=>{s=String(s||'').toUpperCase();if(/RAC/.test(s))return'rac';if(/WL/.test(s))return'wl';if(/CAN/.test(s))return'can';if(/^(CNF|CONFIRMED)/.test(s)||/^[A-Z]{1,2}\d{1,2}\/\d/.test(s))return'cnf';return'other'};
+const stRank=s=>{const k=stKind(s),n=+((String(s||'').match(/(\d+)(?!.*\d)/)||[])[1]||0);return k==='cnf'?0:k==='rac'?1000+n:k==='wl'?2000+n:k==='can'?9000:5000};
+const stColor=s=>({cnf:'var(--ok)',rac:'var(--warn)',wl:'var(--bad)',can:'var(--bad)'}[stKind(s)]||'var(--mut)');
+/* "CNF/B2/34/LB" -> coach B2, berth 34, type LB */
+function seat(now){const m=String(now||'').toUpperCase().match(/^(?:CNF|RAC)?\/?\s*([A-Z]{1,2}\d{1,2})\/(\d{1,3})(?:\/([A-Z]{2}))?/);return m?{coach:m[1],berth:m[2],type:m[3]||''}:null}
+/* what changed between two checks of the same PNR */
+function diffPnr(old,nw){const out=[];const a=old.pax||[],b=nw.pax||[];
+  for(let i=0;i<Math.min(a.length,b.length);i++){const f=a[i].now,t=b[i].now;if(f&&t&&f!==t){const rf=stRank(f),rt=stRank(t);out.push({i,from:f,to:t,dir:rt<rf?'up':rt>rf?'down':'same'})}}
+  if(old.chart&&nw.chart&&old.chart.toLowerCase()!==nw.chart.toLowerCase())out.push({chart:true,from:old.chart,to:nw.chart,dir:'same'});
+  return out}
+const changeText=c=>c.chart?'Chart: '+c.from+' → '+c.to:'Passenger '+(c.i+1)+': '+c.from+' → '+c.to+(c.dir==='up'?' ↑':c.dir==='down'?' ↓':'');
+function fromPnr(r){const k={pnr:r.pnr,train:r.train,trainName:r.trainName,cls:r.cls,chart:r.chart,pax:r.pax,coach:r.coach,berth:r.berth,from:r.from,to:r.to,checked:r.checked,fare:r.fare,remarks:r.remarks,trainStatus:r.trainStatus};
   if(r.from)k.fromName=stName(r.from);if(r.to)k.toName=stName(r.to);
   if(r.date){const m=r.date.match(/(\d{1,2})[-\/ ](\d{1,2}|[A-Za-z]{3})[-\/ ](\d{4})/);if(m){const mon=isNaN(m[2])?['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[2].toLowerCase())+1:+m[2];if(mon>0)k.date=m[3]+'-'+String(mon).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0')}}
   if(r.train&&r.from){const tr=SA.train(r.train);if(tr){const x=JSON.parse(tr).stops.find(s=>s.c===r.from);if(x&&x.t>=0){const mm=x.t%1440;k.time=String(Math.floor(mm/60)).padStart(2,'0')+':'+String(mm%60).padStart(2,'0')}}}
@@ -318,12 +350,16 @@ V.ticket=()=>{const k=tickets().find(x=>x.id===curTicket);if(!k)return V.tickets
   return `${head(esc(k.fromName||k.from||'Ticket')+' → '+esc(k.toName||k.to||''),[k.train&&('Train '+k.train),k.trainName].filter(Boolean).join(' · '))}
   <div class="card dark"><div class="chips">${k.chart?`<span class="pill acc">${esc(k.chart)}</span>`:''}${k.cls?`<span class="pill">${esc(k.cls)}</span>`:''}${k.date?`<span class="pill">${esc(k.date)}${k.time?' · '+hhmm(+k.time.slice(0,2)*60+ +k.time.slice(3)):''}</span>`:''}</div>
    ${k.coach?`<div class="row" style="margin-top:12px"><div><div class="small" style="opacity:.8">Coach</div><div class="big">${esc(k.coach)}</div></div><div><div class="small" style="opacity:.8">Berth</div><div class="big">${esc(k.berth||'–')}</div></div></div>`:''}</div>
-  ${k.pax&&k.pax.length?`<div class="list">${k.pax.map((p,i)=>`<div class="item"><b>Passenger ${i+1}</b><span class="small muted">${esc(p.booked)}</span><b style="color:${/CNF|CONFIRMED/.test(p.now)?'var(--ok)':'var(--warn)'}">${esc(p.now)}</b></div>`).join('')}</div>`:''}
+  ${k.changes&&k.changes.length?`<div class="card" style="border:2px solid var(--acc)"><b>Changed since the check before</b>${k.changes.map(c=>`<div class="msg" style="color:${c.dir==='up'?'var(--ok)':c.dir==='down'?'var(--bad)':'inherit'}">${esc(changeText(c))}</div>`).join('')}<div class="small muted">${k.changedAt?new Date(k.changedAt).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):''}</div></div>`:''}
+  ${k.pax&&k.pax.length?`<div class="list">${k.pax.map((p,i)=>{const sd=seat(p.now);return`<div class="item"><span><b>Passenger ${i+1}</b><small>Booked ${esc(p.booked)}${sd?' · Coach '+esc(sd.coach)+' · Berth '+esc(sd.berth)+(sd.type?' '+esc(sd.type):''):''}</small></span><b style="color:${stColor(p.now)}">${esc(p.now)}</b></div>`}).join('')}</div>`:''}
+  ${k.trainStatus||k.fare||k.remarks?`<div class="list">${[['Train status',k.trainStatus],['Fare',k.fare&&('₹'+String(k.fare).replace(/^₹\s*/,''))],['Remarks',k.remarks]].filter(x=>x[1]).map(x=>`<div class="item"><span class="muted">${x[0]}</span><b style="text-align:right">${esc(x[1])}</b></div>`).join('')}</div>`:''}
+  ${k.hist&&k.hist.length>1?`<div class="lab">Earlier checks</div><div class="list">${k.hist.slice(-6,-1).reverse().map(h=>`<div class="item"><span class="muted small">${new Date(h.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}</span><span class="small">${esc((h.pax||[]).join(' · '))}</span></div>`).join('')}</div>`:''}
+  ${k.train?`<button class="btn" onclick="curTrack=null;TR.num='${esc(k.train)}';SA.lookup('track','${esc(k.train)}')">Where is my train now?</button>`:''}
   ${k.checked?`<p class="muted small">Checked ${new Date(k.checked).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}</p>`:''}
   ${k.pnr?`<button class="btn" onclick="LS.set('lastPnr','${esc(k.pnr)}');SA.lookup('pnr','${esc(k.pnr)}')">Check again</button>`:''}
   <button class="btn pri" onclick="alarmFromTicket('${k.id}')">Set alarm for ${esc(k.toName||k.to||'your stop')}</button>
   <p class="muted small center">${d?(d>Date.now()?'Boarding reminder with your seat card: 1 h 30 min before departure.':''):'Add the date and departure time to get a boarding reminder.'}</p>
-  <div class="row"><button class="btn" onclick="go('ticketEdit')">Edit</button><button class="btn warn" onclick="if(confirm('Delete this ticket?')){SA.unremind('${k.id}');saveTickets(tickets().filter(x=>x.id!=='${k.id}'));goBack()}">Delete</button></div>`};
+  <div class="row"><button class="btn" onclick="go('ticketEdit')">Edit</button><button class="btn warn" onclick="if(confirm('Delete this ticket?')){SA.unremind('${k.id}');SA.unremind('${k.id}:c');saveTickets(tickets().filter(x=>x.id!=='${k.id}'));goBack()}">Delete</button></div>`};
 V.ticketEdit=()=>{const k=tickets().find(x=>x.id===curTicket)||{};const f=(id,lab,v,type='text',ph='')=>`<div class="lab">${lab}</div><input type="${type}" id="f_${id}" value="${esc(v||'')}" placeholder="${ph}" aria-label="${lab}">`;
   return `${head(k.id?'Edit ticket':'Add ticket')}
   ${f('pnr','PNR',k.pnr,'number','10 digits, optional')}${f('train','Train number',k.train,'number','e.g. 12009')}
@@ -336,10 +372,51 @@ window.saveEdit=function(){const k={id:curTicket||undefined};['pnr','train','dat
 window.alarmFromTicket=function(id){const k=tickets().find(x=>x.id===id);if(!k)return;
   const tr=k.train?SA.train(k.train):'';
   if(tr){const t=JSON.parse(tr);let di=t.stops.findIndex(s=>s.c===k.to);if(di<0&&k.toName)di=t.stops.findIndex(s=>s.n.toLowerCase()===k.toName.toLowerCase());
-    if(di>=0){startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(s=>({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h})),dest:di,alert:{type:'min',v:30},extra:[],ticket:k.id});return}
+    if(di>=0){startTrip({kind:'long',train:t.num,trainName:t.name,st:t.stops.map(tripStop),dest:di,alert:{type:'min',v:30},extra:[],ticket:k.id,live:t.live});return}
     T.num=k.train;T.train=t;T.dest=null;T.err='';go('long');SA.toast('Tap where you get off');return}
   if(k.to){const r=JSON.parse(SA.search(k.to));const m=r.find(x=>x.c===k.to)||r[0];if(m){startTrip({kind:'long',noRoute:true,st:[{n:m.n,la:m.la,lo:m.lo}],dest:0,alert:{type:'min',v:30},extra:[],ticket:k.id});return}}
   T.num=k.train||'';go('long')};
+
+/* track a train: live position from NTES, no need to be on it */
+const tracked=()=>LS.get('tracked',[]);
+function saveTracked(x){const l=tracked().filter(y=>y.num!==x.num);l.unshift({num:x.num,name:String(x.name||'').replace(/\s*\(NTES\)$/,''),stops:x.stops,live:x.live,fetched:Date.now()});LS.set('tracked',l.slice(0,8))}
+let curTrack=null,TR={num:'',err:''};
+V.track=()=>`${head('Track a train','Where is it now? Live from NTES.')}
+  <div class="row" style="margin-top:12px"><input type="number" inputmode="numeric" placeholder="Train number, e.g. 12009" aria-label="Train number" value="${esc(TR.num)}" oninput="TR.num=this.value" onkeydown="if(event.key==='Enter')trackFind()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="trackFind()">Track</button></div>
+  ${TR.err?`<div class="banner">${esc(TR.err)}</div>`:''}
+  <div class="lab">Recently tracked</div>
+  <div class="list">${tracked().map(x=>`<button class="item" onclick="curTrack='${esc(x.num)}';go('trackTrain')"><span><b>${esc(x.name)}</b><small>${esc(liveLine(x.live)||'Timetable only')}</small></span><span class="muted small">›</span></button>`).join('')||'<div class="item muted">Trains you track stay here</div>'}</div>
+  <button class="btn" onclick="trackTimetable()">Timetable only (works with no network)</button>
+  <p class="center muted small">Opens the NTES “Spot Your Train” page inside the app. Enter the train there, then tap “Use this result”. Coach position and platform for each station are on that page too.</p>`;
+window.trackFind=function(){const n=TR.num.trim();if(!/^\d{5}$/.test(n)){TR.err='A train number has 5 digits.';render();return}TR.err='';SA.lookup('track',n)};
+window.trackTimetable=function(){const n=TR.num.trim();const r=n&&SA.train(n);if(!r){TR.err=n?'Train '+n+' is not in the stored timetable. Use Track to read it from NTES.':'Type a train number first.';render();return}
+  const t=JSON.parse(r);if(!tracked().some(y=>y.num===t.num))saveTracked({num:t.num,name:t.num+' '+t.name,stops:t.stops,live:null});curTrack=t.num;go('trackTrain')};
+V.trackTrain=()=>{const x=tracked().find(y=>y.num===curTrack);if(!x)return V.track();
+  const L=x.live&&x.live.has?x.live:null,d=L&&L.delay!=null?L.delay:null;
+  const li=L?x.stops.findIndex(s=>s.n===L.name):-1;
+  const nx=L?(li<0?-1:(L.atStation?li+1:li+1)):0;      // next stop the train has yet to reach
+  const sched=s=>s.ta!=null?s.ta:s.t;
+  const exp=s=>d!=null&&sched(s)>=0?sched(s)+d:null;
+  const next=nx>=0&&nx<x.stops.length?x.stops[nx]:null,last=x.stops[x.stops.length-1];
+  const stale=L&&Date.now()-L.at>30*60000;
+  const row=(s,i)=>{const past=li>=0&&i<=li,at=past?(i===li&&L.atStation?(s.aa!=null?'arrived '+hhmm(s.aa):''):(s.ad!=null?'left '+hhmm(s.ad):s.aa!=null?'arrived '+hhmm(s.aa):'')):'';
+    const e=!past?exp(s):null;
+    return `<div class="stop ${past?'past':''} ${i===nx&&li>=0?'me':''}"><i></i><span><b style="font-weight:${i===nx?800:600}">${esc(s.n)}</b><small class="muted small" style="display:block">${past?at:(e!=null?'expected '+hhmm(e)+' · scheduled '+hhmm(sched(s)):'scheduled '+hhmm(sched(s)))}${s.pf?' · Platform '+esc(s.pf):''}</small></span></div>`};
+  return `${head(x.name,L?liveLine(L):'Timetable only. Tap Refresh for live status.')}
+  <div class="card dark">${L?`<div class="stat" style="font-size:22px">${L.atStation?'At':'Left'} ${esc(L.name)}</div>
+    <div class="chips" style="margin-top:8px">${d!=null?`<span class="pill acc">${esc(delayExact(d))}</span>`:''}<span class="pill">${esc(ageText(L.at))}</span></div>`:`<div class="stat" style="font-size:22px">No live position yet</div><div class="small" style="opacity:.8;margin-top:4px">Tap Refresh once the train has started.</div>`}
+    ${next?`<div style="margin-top:10px"><div class="small" style="opacity:.8">Next stop</div><b style="font-size:17px">${esc(next.n)}</b><div class="small" style="opacity:.85">${exp(next)!=null?'expected '+hhmm(exp(next))+' · ':''}scheduled ${hhmm(sched(next))}${next.pf?' · Platform '+esc(next.pf):''}</div></div>`:''}
+    ${L&&d!=null&&last&&next!==last&&exp(last)!=null?`<div class="small" style="opacity:.85;margin-top:8px">Reaches ${esc(last.n)} around ${hhmm(exp(last))} if the delay stays the same</div>`:''}
+    ${stale?`<div class="small" style="margin-top:8px;font-weight:700">This is ${esc(ageText(L.at))}. Refresh for the latest.</div>`:''}</div>
+  <button class="btn pri" onclick="SA.lookup('track','${esc(x.num)}')">Refresh live status</button>
+  <div class="list">${x.stops.map(row).join('')}</div>
+  <p class="center muted small">“Expected” is the scheduled time plus the delay NTES showed at the last station. It is an estimate, not an NTES prediction.</p>
+  <div class="row"><button class="btn" onclick="SA.lookup('track','${esc(x.num)}')">Coach position on NTES</button><button class="btn" onclick="trackShare('${esc(x.num)}')">Send to family</button></div>
+  <button class="btn" onclick="rideTracked('${esc(x.num)}')">I am on this train: set my alarm</button>
+  <button class="btn warn" onclick="if(confirm('Remove from recent trains?')){LS.set('tracked',tracked().filter(y=>y.num!=='${esc(x.num)}'));goBack()}">Remove</button>`};
+window.trackShare=function(num){const x=tracked().find(y=>y.num===num);if(!x)return;const L=x.live&&x.live.has?x.live:null;
+  SA.share('Train '+x.name+(L?': '+(L.atStation?'at ':'left ')+L.name+(L.delay!=null?', '+delayExact(L.delay):'')+' (NTES, '+ageText(L.at)+').':'.'))};
+window.rideTracked=function(num){const x=tracked().find(y=>y.num===num);if(!x)return;T.num=x.num;T.train={num:x.num,name:x.name,stops:x.stops,live:x.live};T.dest=null;T.err='';T.showAll=false;go('long')};
 
 /* help card */
 V.help=()=>{const t=JSON.parse(SA.trip()||SA.last()||'{}');const s=JSON.parse(SA.state());const k=tickets().find(x=>x.id===t.ticket)||{};
@@ -352,6 +429,9 @@ V.help=()=>{const t=JSON.parse(SA.trip()||SA.last()||'{}');const s=JSON.parse(SA
 /* results coming back from Indian Railways pages */
 function takeLookup(){if(!hasSA)return false;const r=SA.takeLookup();if(!r)return false;const x=JSON.parse(r);
   if(x.mode==='pnr'){const k=upsertTicket(fromPnr(x));curTicket=k.id;stack=['home','tickets'];view='ticket';render();SA.toast('Ticket saved');return true}
+  if(x.mode==='track'&&x.stops){saveTracked(x);curTrack=x.num;stack=['home','track'];view='trackTrain';render();SA.toast(x.live&&x.live.has?'Live status updated':'No live times yet. Showing the timetable.');return true}
+  if(x.mode==='ntes'&&x.stops&&hasSA&&SA.trip()){const cur=JSON.parse(SA.trip());
+    if(cur.train===x.num){cur.live=x.live;x.stops.forEach(ns=>{const m=(cur.st||[]).find(z=>z.n===ns.n);if(m&&ns.pf)m.pf=ns.pf});SA.updateTrip(JSON.stringify(cur));stack=[];view='trip';render();SA.toast('Train status updated');return true}}
   if(x.mode==='ntes'&&x.stops){T.train=x;T.num=x.num;T.err='';T.dest=null;stack=['home'];view='long';render();SA.toast('Route loaded from NTES. Tap your stop.');return true}
   return false}
 
@@ -360,7 +440,7 @@ function lastArrived(){try{const l=SA.last();return !!(l&&JSON.parse(l).arrived)
 function render(){clearInterval(timer);app.classList.toggle('fill',['local','long','anystation','trip'].includes(view));app.innerHTML=(V[view]||V.home)();if(view==='trip'){const r=$('#route'),me=r&&r.querySelector('.stop.me');if(me)r.scrollTop=Math.max(0,me.offsetTop-r.clientHeight/3);
   timer=setInterval(()=>{const st=JSON.parse(SA.state());if(!st.active){if(lastArrived()){stack=[];go('arrived',false)}else{stack=[];go('home',false)}return}const o=$('#route'),y=o?o.scrollTop:0;app.innerHTML=V.trip();const n=$('#route');if(n)n.scrollTop=y},3000)}}
 window.onResumeApp=function(){if(!hasSA)return;if(takeLookup())return;const s=JSON.parse(SA.state());if(s.active&&SA.trip()){if(view!=='trip'&&view!=='messages'&&view!=='timetable'){stack=[];go('trip',false)}else render()}else if(lastArrived()&&view!=='arrived'){stack=[];go('arrived',false)}else if(view==='trip'){stack=[];go('home',false)}else render()};
-syncSaved();
+syncSaved();syncNext();
 (function boot(){if(!hasSA){render();return}const s=JSON.parse(SA.state());if(s.active&&SA.trip())view='trip';else if(lastArrived())view='arrived';render();const sv=SA.takePendingSaved();if(sv)startSaved(sv);const tk=SA.takePendingTicket&&SA.takePendingTicket();if(tk)openTicket(tk)})();
 </script>
 </body>

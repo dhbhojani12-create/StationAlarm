@@ -30,7 +30,9 @@ public class ReminderReceiver extends BroadcastReceiver {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel("board", "Boarding reminders", NotificationManager.IMPORTANCE_HIGH));
         String id = in.getStringExtra("id");
-        Intent open = new Intent(c, MainActivity.class).putExtra("ticket", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        boolean chart = id != null && id.endsWith(":c");
+        String ticketId = chart ? id.substring(0, id.length() - 2) : id;
+        Intent open = new Intent(c, MainActivity.class).putExtra("ticket", ticketId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         Notification n = new Notification.Builder(c, "board")
                 .setSmallIcon(android.R.drawable.ic_dialog_map)
                 .setContentTitle(in.getStringExtra("title"))
@@ -38,7 +40,7 @@ public class ReminderReceiver extends BroadcastReceiver {
                 .setStyle(new Notification.BigTextStyle().bigText(in.getStringExtra("text")))
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setContentIntent(PendingIntent.getActivity(c, 300 + (id == null ? 0 : id.hashCode() & 0xff), open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
-                .addAction(new Notification.Action.Builder(null, "Set station alarm",
+                .addAction(new Notification.Action.Builder(null, chart ? "Check PNR" : "Set station alarm",
                         PendingIntent.getActivity(c, 400 + (id == null ? 0 : id.hashCode() & 0xff), open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT)).build())
                 .build();
         nm.notify(5000 + (id == null ? 0 : id.hashCode() & 0xfff), n);

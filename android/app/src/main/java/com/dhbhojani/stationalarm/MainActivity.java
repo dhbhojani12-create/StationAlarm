@@ -169,6 +169,12 @@ public class MainActivity extends Activity {
             TripWidget.refresh(MainActivity.this);
         }
 
+        /** One line about the next ticket, shown on the home-screen widget. */
+        @JavascriptInterface public void setNext(String line) {
+            TripService.prefs(MainActivity.this).edit().putString("next", line == null ? "" : line).apply();
+            TripWidget.refresh(MainActivity.this);
+        }
+
         @JavascriptInterface public String takePendingSaved() { String s = pendingSaved; pendingSaved = null; return s == null ? "" : s; }
 
         @JavascriptInterface public void share(String text) { runOnUiThread(() -> startActivity(waIntent(MainActivity.this, text))); }

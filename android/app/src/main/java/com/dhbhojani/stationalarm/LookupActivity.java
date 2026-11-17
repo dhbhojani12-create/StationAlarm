@@ -59,7 +59,8 @@ public class LookupActivity extends Activity {
         hint.setTextSize(14);
         hint.setText("pnr".equals(mode)
                 ? "Enter PNR " + arg + " and the captcha, then tap \"Use this result\" once the status shows."
-                : "Open Spot Your Train, enter train " + arg + ", then tap \"Use this result\" once the station list shows.");
+                : "Open Spot Your Train, enter train " + arg + ", then tap \"Use this result\" once the station list shows. "
+                + "Coach position and platform for each station are on this page too.");
         root.addView(hint);
         web = new WebView(this);
         WebSettings s = web.getSettings();
@@ -199,16 +200,31 @@ public class LookupActivity extends Activity {
         NtesParser.Result nr = NtesParser.parse(snap.optString("text"));
         if (nr.stops.size() >= 2) {
             JSONArray arr = new JSONArray();
-            for (NtesParser.Stop x : nr.stops) {
+            int liveIdx = -1; // the live stop's position in arr (stations we have no location for are skipped)
+            for (int i = 0; i < nr.stops.size(); i++) {
+                NtesParser.Stop x = nr.stops.get(i);
                 Data.Station st = Data.byCode(x.code);
                 if (st == null) continue; // a station we have no location for
                 int t = x.arr >= 0 ? x.arr : x.dep;
-                arr.put(new JSONObject().put("c", st.code).put("n", st.name).put("la", st.lat).put("lo", st.lon).put("t", t).put("h", 1));
+                JSONObject o = new JSONObject().put("c", st.code).put("n", st.name).put("la", st.lat).put("lo", st.lon).put("t", t).put("h", 1);
+                if (x.arr >= 0) o.put("ta", x.arr);
+                if (x.dep >= 0) o.put("td", x.dep);
+                if (x.aarr >= 0) o.put("aa", x.aarr);   // real arrival
+                if (x.adep >= 0) o.put("ad", x.adep);   // real departure
+                if (!x.pf.isEmpty()) o.put("pf", x.pf);
+                if (i == nr.live.lastIdx) liveIdx = arr.length();
+                arr.put(o);
             }
             if (arr.length() >= 2) {
                 String num = nr.number.isEmpty() ? arg : nr.number;
                 String name = nr.name.isEmpty() ? "Train " + num : num + " " + titleCase(nr.name);
-                return new JSONObject().put("num", num).put("name", name + " (NTES)").put("stops", arr);
+                JSONObject res = new JSONObject().put("num", num).put("name", name + " (NTES)").put("stops", arr);
+                JSONObject lv = new JSONObject().put("at", System.currentTimeMillis()).put("has", nr.live.has && liveIdx >= 0);
+                if (nr.live.has && liveIdx >= 0) {
+                    lv.put("idx", liveIdx).put("name", arr.getJSONObject(liveIdx).getString("n")).put("atStation", nr.live.atStation);
+                    if (nr.live.hasDelay) lv.put("delay", nr.live.delay);
+                }
+                return res.put("live", lv);
             }
         }
         JSONArray rows = snap.optJSONArray("rows");

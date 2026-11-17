@@ -53,6 +53,7 @@ public class TripService extends Service {
     // live values
     double progress = -1, remaining = -1, travelled = 0, speedMs = 0;
     Integer delayMin = null;
+    Integer liveDelay = null; // delay NTES reported (minutes), used while the phone cannot work it out itself
     Integer dueMin = null; // train not here yet: minutes until it is due where you are
     Double etaMin = null;
     int nextIdx = -1, stopsAway = -1;
@@ -66,7 +67,7 @@ public class TripService extends Service {
 
     void reset() {
         trip = null; st = null; cum = null; progress = -1; remaining = -1; travelled = 0; speedMs = 0;
-        delayMin = null; etaMin = null; nextIdx = -1; stopsAway = -1; near = ""; last = null; lastFix = 0;
+        delayMin = null; liveDelay = null; etaMin = null; nextIdx = -1; stopsAway = -1; near = ""; last = null; lastFix = 0;
         base = -1; arrivedAt = 0; alerted = false; arrived = false; reversedChecked = false; fromName = null;
         extraDone.clear(); hist.clear(); band = -1;
     }
@@ -184,6 +185,12 @@ public class TripService extends Service {
                 JSONObject cur = new JSONObject(prefs(this).getString("trip", "{}"));
                 if (cur.has("extra")) trip.put("extra", cur.getJSONArray("extra"));
                 if (cur.has("share")) trip.put("share", cur.getString("share")); else trip.remove("share");
+                if (cur.has("live")) trip.put("live", cur.getJSONObject("live"));
+                JSONArray cs = cur.optJSONArray("st");
+                if (!local && cs != null && cs.length() == st.length()) for (int i = 0; i < cs.length(); i++) {
+                    String pf = cs.getJSONObject(i).optString("pf", "");
+                    if (!pf.isEmpty()) st.getJSONObject(i).put("pf", pf);
+                }
             } catch (Exception ignored) { }
             compute(l, acc, now);
             write(now);
@@ -250,6 +257,9 @@ public class TripService extends Service {
             if (dl < -15 && speedMs < 2.5) { dueMin = -dl; base = -1; }
             else delayMin = dl;
         }
+        liveDelay = null;
+        JSONObject lv = trip.optJSONObject("live");
+        if (lv != null && lv.has("delay") && now - lv.optLong("at", 0) < 45 * 60000L) liveDelay = lv.optInt("delay");
         etaMin = null;
         Double schedDest = noRoute ? null : sched(cum[dest]);
         if (schedHere != null && schedDest != null) etaMin = Math.max(0, schedDest - schedHere) + (dueMin != null ? dueMin : 0);
@@ -348,6 +358,19 @@ public class TripService extends Service {
         return ta + f * (tb - ta);
     }
 
+    /** The phone's own delay if it has one, else the last delay NTES reported. */
+    Integer shownDelay() { return delayMin != null ? delayMin : liveDelay; }
+
+    static String delayPhrase(Integer d) {
+        if (d == null) return "";
+        return d > 5 ? "about " + fmtMin(d) + " late" : d < -5 ? "running early" : "on time";
+    }
+
+    /** Platform NTES lists for your stop ("" if none). */
+    String destPf() { try { return st.getJSONObject(dest).optString("pf", ""); } catch (Exception e) { return ""; } }
+
+    static String clockAt(long ms) { return new SimpleDateFormat("h:mm a", Locale.ENGLISH).format(new Date(ms)).toLowerCase(Locale.ENGLISH); }
+
     static String fmtDue(int m) { return m >= 60 ? (m / 60) + " h " + (m % 60) + " min" : m + " min"; }
 
     /** The midnight of the train's first day that makes today's delay make sense. */
@@ -379,10 +402,15 @@ public class TripService extends Service {
             text = (prev.isEmpty() ? "" : "Leaving " + prev + ". ") + "Get ready.";
         } else if (etaMin != null) {
             title = d + " in about " + fmtMin(etaMin);
-            text = Math.round(remaining / 1000.0) + " km to go. Get ready.";
+            text = Math.round(remaining / 1000.0) + " km to go, arriving around " + clockAt(now() + Math.round(etaMin * 60000)) + ". Get ready.";
         } else {
             title = d + " is coming up";
             text = Math.round(remaining / 1000.0) + " km to go.";
+        }
+        if (!local) {
+            String pf = destPf(), dp = delayPhrase(shownDelay());
+            if (!pf.isEmpty()) text += " Platform " + pf + " expected.";
+            if (!dp.isEmpty() && !"on time".equals(dp)) text += " Train is " + dp + ".";
         }
         Intent fam = null;
         if (!local) fam = MainActivity.waIntent(this, "About " + (etaMin != null ? fmtMin(etaMin) : "30 minutes") + " from " + d + ".");
@@ -454,7 +482,7 @@ public class TripService extends Service {
             text = near;
         } else {
             title = d + " · " + Math.round(remaining / 1000.0) + " km" + (etaMin != null ? " · about " + fmtMin(etaMin) : "");
-            text = near + (dueMin != null ? " · train due in " + fmtDue(dueMin) : delayMin != null ? (delayMin > 5 ? " · about " + delayMin + " min late" : delayMin < -5 ? " · running early" : " · on time") : "");
+            text = near + (dueMin != null ? " · train due in " + fmtDue(dueMin) : shownDelay() != null ? " · " + delayPhrase(shownDelay()) : "");
         }
         getSystemService(NotificationManager.class).notify(ID_ONGOING, ongoing(title, text));
         try {
@@ -464,7 +492,9 @@ public class TripService extends Service {
                     .put("speed", speedMs).put("near", near).put("stopsAway", stopsAway).put("next", nextIdx)
                     .put("alerted", alerted).put("fix", lastFix).put("title", title).put("text", text);
             if (etaMin != null) s.put("eta", etaMin);
-            if (delayMin != null) s.put("delay", delayMin);
+            if (shownDelay() != null) s.put("delay", shownDelay());
+            if (delayMin == null && liveDelay != null) s.put("delaySrc", "ntes");
+            if (!destPf().isEmpty()) s.put("destPf", destPf());
             if (dueMin != null) s.put("due", dueMin);
             if (cum != null) { JSONArray c = new JSONArray(); for (double v : cum) c.put(Math.round(v)); s.put("cum", c); }
             prefs(this).edit().putString("state", s.toString()).apply();
@@ -485,14 +515,16 @@ public class TripService extends Service {
             if (!noRoute && cum != null) for (int i = 0; i < st.length() && route.length() < 70; i++) {
                 JSONObject s = st.getJSONObject(i);
                 if (local || s.optInt("h", 1) == 1 || i == dest)
-                    route.put(new JSONArray().put(s.getString("n")).put(Math.round(cum[i])).put(s.optInt("t", -1)));
+                    route.put(new JSONArray().put(s.getString("n")).put(Math.round(cum[i])).put(s.optInt("t", -1)).put(s.optString("pf", "")));
             }
             JSONObject m = new JSONObject().put("v", 1).put("ts", now).put("dest", destName()).put("destM", cum == null || noRoute ? -1 : Math.round(cum[dest]))
                     .put("train", trip.optString("train", "")).put("trainName", trip.optString("trainName", trip.optString("lineName", "")))
                     .put("near", near).put("progress", Math.round(progress)).put("remaining", Math.round(remaining))
                     .put("speed", Math.round(speedMs * 3.6)).put("arrived", arrived).put("route", route);
-            if (etaMin != null) m.put("eta", Math.round(etaMin));
-            if (delayMin != null) m.put("delay", delayMin);
+            if (etaMin != null) m.put("eta", Math.round(etaMin)).put("etaAt", now + Math.round(etaMin * 60000));
+            if (shownDelay() != null) m.put("delay", shownDelay());
+            if (!destPf().isEmpty()) m.put("pf", destPf());
+            if (nextIdx >= 0 && nextIdx < st.length()) m.put("next", st.getJSONObject(nextIdx).getString("n"));
             final byte[] body = m.toString().getBytes("UTF-8");
             new Thread(() -> {
                 try {
@@ -525,7 +557,7 @@ public class TripService extends Service {
                         .put("km", Math.round(travelled / 100.0) / 10.0)
                         .put("kind", trip.optString("kind")).put("train", trip.optString("train", ""))
                         .put("reached", arrived && !trip.optBoolean("missed", false));
-                if (delayMin != null) e.put("delay", delayMin);
+                if (shownDelay() != null) e.put("delay", shownDelay());
                 log.put(e);
                 while (log.length() > 500) log.remove(0);
                 p.edit().putString("log", log.toString()).apply();

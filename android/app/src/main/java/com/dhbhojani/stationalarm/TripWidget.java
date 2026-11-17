@@ -38,7 +38,8 @@ public class TripWidget extends AppWidgetProvider {
             } else {
                 v.setTextViewText(R.id.label, "Station Alarm");
                 v.setTextViewText(R.id.title, "Where to?");
-                v.setTextViewText(R.id.text, "Tap a saved trip to start");
+                String next = TripService.prefs(c).getString("next", "");
+                v.setTextViewText(R.id.text, next.isEmpty() ? "Tap a saved trip to start" : next);
                 JSONArray saved = new JSONArray(TripService.prefs(c).getString("saved", "[]"));
                 v.setViewVisibility(R.id.row, saved.length() > 0 ? View.VISIBLE : View.GONE);
                 for (int i = 0; i < 3; i++) {
