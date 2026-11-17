@@ -3,6 +3,7 @@ package com.dhbhojani.stationalarm;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -39,6 +40,7 @@ public class LookupActivity extends Activity {
 
     WebView web;
     String mode, arg;
+    boolean kept; // the NTES page was handed to NtesSession, so it must not be destroyed with this screen
 
     /** What the page shows: every table row (cells joined by |) and the visible text. */
     static final String SNAP = "(function(){var rows=[];document.querySelectorAll('tr').forEach(function(tr){var c=[];tr.querySelectorAll('th,td').forEach(function(td){c.push((td.innerText||'').replace(/\\s+/g,' ').trim())});if(c.join('').length)rows.push(c.join(' | '))});" +
@@ -60,9 +62,9 @@ public class LookupActivity extends Activity {
         hint.setText("pnr".equals(mode)
                 ? "Enter PNR " + arg + " and the captcha, then tap \"Use this result\" once the status shows."
                 : "Open Spot Your Train, enter train " + arg + ", then tap \"Use this result\" once the station list shows. "
-                + "Coach position and platform for each station are on this page too.");
+                + "After that the app refreshes it for you, so you don't have to come back here.");
         root.addView(hint);
-        web = new WebView(this);
+        web = "pnr".equals(mode) ? new WebView(this) : NtesSession.create(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -119,6 +121,10 @@ public class LookupActivity extends Activity {
             }
             res.put("mode", mode);
             TripService.prefs(this).edit().putString("lookup", res.toString()).apply();
+            if (!"pnr".equals(mode) && res.has("live")) { // keep the NTES page alive so the app can refresh it
+                NtesSession.keep(getApplicationContext(), web, res.optString("num", arg), res.getJSONObject("live").optLong("upd", 0));
+                kept = true;
+            }
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Couldn't read the page", Toast.LENGTH_SHORT).show();
@@ -194,8 +200,11 @@ public class LookupActivity extends Activity {
     }
 
     /* ---------------- NTES train schedule ---------------- */
-    JSONObject parseSchedule(JSONObject snap) throws Exception {
-        Data.load(this);
+    JSONObject parseSchedule(JSONObject snap) throws Exception { return scheduleJson(this, snap, arg); }
+
+    /** The train's stops, with platforms, real and expected times and where it is now, as JSON for the app screen. */
+    static JSONObject scheduleJson(Context c, JSONObject snap, String arg) throws Exception {
+        Data.load(c);
         // NTES "Spot Your Train" lists the stopping stations in its page text
         NtesParser.Result nr = NtesParser.parse(snap.optString("text"));
         JSONArray cr = snap.optJSONArray("rows");
@@ -229,6 +238,7 @@ public class LookupActivity extends Activity {
                 JSONObject res = new JSONObject().put("num", num).put("name", name + " (NTES)").put("stops", arr);
                 JSONObject lv = new JSONObject().put("at", System.currentTimeMillis()).put("has", nr.live.has && liveIdx >= 0)
                         .put("msg", nr.statusLine);
+                if (nr.updatedMs > 0) lv.put("upd", nr.updatedMs); // when NTES itself last updated this train
                 if (!nr.coaches.isEmpty()) {
                     res.put("coaches", coachJson(nr.coaches));
                     if (!nr.coachesExtra.isEmpty()) res.put("coachesExtra", coachJson(nr.coachesExtra));
@@ -302,6 +312,12 @@ public class LookupActivity extends Activity {
     }
 
     int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (web != null && !kept) web.destroy();
+    }
 
     @Override
     public void onBackPressed() { if (web.canGoBack()) web.goBack(); else super.onBackPressed(); }

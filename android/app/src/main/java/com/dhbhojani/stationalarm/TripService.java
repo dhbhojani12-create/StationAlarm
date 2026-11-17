@@ -43,6 +43,7 @@ public class TripService extends Service {
 
     LocationManager lm;
     final Handler h = new Handler(Looper.getMainLooper());
+    long lastAuto; // when the NTES page was last refreshed for this trip
     JSONObject trip;
     JSONArray st;
     double[] cum;
@@ -192,6 +193,25 @@ public class TripService extends Service {
                     if (!pf.isEmpty()) st.getJSONObject(i).put("pf", pf);
                 }
             } catch (Exception ignored) { }
+            String trainNo = trip.optString("train", "");
+            if (!local && now - lastAuto > 5 * 60000L && NtesSession.has(trainNo)) { // keep the train's NTES status fresh
+                lastAuto = now;
+                NtesSession.refresh(getApplicationContext(), (res, why) -> {
+                    if (res == null) return;
+                    try {
+                        trip.put("live", res.getJSONObject("live"));
+                        JSONArray ns = res.getJSONArray("stops");
+                        for (int i = 0; i < st.length(); i++) {
+                            String n = st.getJSONObject(i).getString("n");
+                            for (int j = 0; j < ns.length(); j++) {
+                                JSONObject o = ns.getJSONObject(j);
+                                if (n.equals(o.optString("n")) && !o.optString("pf", "").isEmpty()) st.getJSONObject(i).put("pf", o.getString("pf"));
+                            }
+                        }
+                        saveTrip();
+                    } catch (Exception ignored) { }
+                });
+            }
             compute(l, acc, now);
             write(now);
             // check less often when far away, to save battery
@@ -259,7 +279,7 @@ public class TripService extends Service {
         }
         liveDelay = null;
         JSONObject lv = trip.optJSONObject("live");
-        if (lv != null && lv.has("delay") && now - lv.optLong("at", 0) < 45 * 60000L) liveDelay = lv.optInt("delay");
+        if (lv != null && lv.has("delay") && now - (lv.optLong("upd", 0) > 0 ? lv.optLong("upd") : lv.optLong("at", 0)) < 45 * 60000L) liveDelay = lv.optInt("delay");
         etaMin = null;
         Double schedDest = noRoute ? null : sched(cum[dest]);
         if (schedHere != null && schedDest != null) etaMin = Math.max(0, schedDest - schedHere) + (dueMin != null ? dueMin : 0);

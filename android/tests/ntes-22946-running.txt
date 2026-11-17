@@ -1,0 +1,388 @@
+National Train Enquiry System
+Spot Your Train
+Train Instances
+Journey Station Basis
+
+
+Train No./Name
+  
+22946 SAURASHTRA MAIL
+Start Date :   
+18-Nov-2026
+17-Nov-2026
+16-Nov-2026
+15-Nov-2026
+14-Nov-2026
+Start Date : 17-Nov-2026   Current Position
+Departed from JAMNAGAR(JAM) at 13:50 17-Nov (Delay: 00:01)
+ 
+Last Updates On
+17-Nov-2026 13:51  Refresh
+17%
+OKHA - MUMBAI CENTRAL
+
+Arrival
+Station
+Departure
+ SRC  
+ SRC  
+
+OKHA
+
+OKHA PF 1   Coach Position
+
+SRC
+11:05 17-Nov
+11:05 17-Nov
+On Time
+11:17 17-Nov
+11:18 17-Nov
+1 Min
+MITHAPUR
+
+MTHP   Coach Position
+
+10 KMs   ⇓ Non-Stopping Stations 
+11:18 17-Nov
+11:19 17-Nov
+1 Min
+11:35 17-Nov
+11:34 17-Nov
+On Time
+DWARKA
+
+DWK PF 1   Coach Position
+
+29 KMs   ⇓ Non-Stopping Stations 
+11:40 17-Nov
+11:40 17-Nov
+On Time
+12:13 17-Nov
+12:17 17-Nov
+4 Min
+BHATIYA
+
+BHTA PF 1   Coach Position
+
+71 KMs   ⇓ Non-Stopping Stations 
+12:14 17-Nov
+12:18 17-Nov
+4 Min
+12:53 17-Nov
+12:59 17-Nov
+6 Min
+KHAMBHALIYA
+
+KMBL PF 1   Coach Position
+
+113 KMs   ⇓ Non-Stopping Stations 
+12:55 17-Nov
+13:00 17-Nov
+5 Min
+13:17 17-Nov
+13:24 17-Nov
+7 Min
+KANALAS JN
+
+KNLS PF 1   Coach Position
+
+141 KMs   ⇓ Non-Stopping Stations 
+13:18 17-Nov
+13:25 17-Nov
+7 Min
+13:44 17-Nov
+13:45 17-Nov
+1 Min
+JAMNAGAR
+
+JAM PF 1   Coach Position
+
+167 KMs
+ Departed from JAMNAGAR (JAM) on 17-Nov-2026 13:50 (Delay 00:01)
+13:49 17-Nov
+13:50 17-Nov
+1 Min
+14:03 17-Nov
+14:03 17-Nov*
+On Time
+HAPA
+
+HAPA PF 1*   Coach Position
+
+176 KMs
+14:05 17-Nov
+14:05 17-Nov*
+On Time
+14:16 17-Nov
+14:16 17-Nov*
+On Time
+ALIA BADA
+
+ALB PF 1*   Coach Position
+
+186 KMs
+14:17 17-Nov
+14:17 17-Nov*
+On Time
+14:29 17-Nov
+14:29 17-Nov*
+On Time
+JAM WANTHALI
+
+WTJ PF 1*   Coach Position
+
+198 KMs   ⇓ Non-Stopping Stations 
+14:30 17-Nov
+14:30 17-Nov*
+On Time
+14:55 17-Nov
+14:55 17-Nov*
+On Time
+PADADHARI
+
+PDH PF 1*   Coach Position
+
+227 KMs   ⇓ Non-Stopping Stations 
+14:56 17-Nov
+14:56 17-Nov*
+On Time
+15:44 17-Nov
+15:44 17-Nov*
+On Time
+RAJKOT
+
+RJT PF 3*   Coach Position
+
+252 KMs   ⇓ Non-Stopping Stations 
+15:54 17-Nov
+15:54 17-Nov*
+On Time
+16:32 17-Nov
+16:32 17-Nov*
+On Time
+WANKANER JN
+
+WKR PF 2*   Coach Position
+
+294 KMs   ⇓ Non-Stopping Stations 
+16:37 17-Nov
+16:37 17-Nov*
+On Time
+17:00 17-Nov
+17:00 17-Nov*
+On Time
+THAN JN
+
+THAN PF 2*   Coach Position
+
+321 KMs   ⇓ Non-Stopping Stations 
+17:02 17-Nov
+17:02 17-Nov*
+On Time
+17:44 17-Nov
+17:44 17-Nov*
+On Time
+SURENDRANAGAR
+
+SUNR PF 2*   Coach Position
+
+368 KMs   ⇓ Non-Stopping Stations 
+17:49 17-Nov
+17:49 17-Nov*
+On Time
+18:08 17-Nov
+18:08 17-Nov*
+On Time
+LAKHTAR
+
+LTR PF 1*   Coach Position
+
+389 KMs   ⇓ Non-Stopping Stations 
+18:09 17-Nov
+18:09 17-Nov*
+On Time
+19:00 17-Nov
+19:00 17-Nov*
+On Time
+VIRAMGAM JN
+
+VG PF 2*   Coach Position
+
+433 KMs   ⇓ Non-Stopping Stations 
+19:02 17-Nov
+19:02 17-Nov*
+On Time
+19:42 17-Nov
+19:42 17-Nov*
+On Time
+CHANDLODIYA
+
+CLDY PF 2*   Coach Position
+
+487 KMs   ⇓ Non-Stopping Stations 
+19:44 17-Nov
+19:44 17-Nov*
+On Time
+20:25 17-Nov
+20:25 17-Nov*
+On Time
+AHMEDABAD JN
+
+ADI PF 4*   Coach Position
+
+498 KMs   ⇓ Non-Stopping Stations 
+20:35 17-Nov
+20:35 17-Nov*
+On Time
+21:20 17-Nov
+21:20 17-Nov*
+On Time
+NADIAD JN
+
+ND PF 1*   Coach Position
+
+544 KMs   ⇓ Non-Stopping Stations 
+21:22 17-Nov
+21:22 17-Nov*
+On Time
+21:37 17-Nov
+21:37 17-Nov*
+On Time
+ANAND JN
+
+ANND PF 4*   Coach Position
+
+562 KMs   ⇓ Non-Stopping Stations 
+21:39 17-Nov
+21:39 17-Nov*
+On Time
+22:19 17-Nov
+22:19 17-Nov*
+On Time
+VADODARA JN
+
+BRC PF 1*   Coach Position
+
+598 KMs   ⇓ Non-Stopping Stations 
+22:24 17-Nov
+22:24 17-Nov*
+On Time
+23:11 17-Nov
+23:11 17-Nov*
+On Time
+BHARUCH JN
+
+BH PF 4*   Coach Position
+
+668 KMs   ⇓ Non-Stopping Stations 
+23:13 17-Nov
+23:13 17-Nov*
+On Time
+00:05 18-Nov
+00:05 18-Nov*
+On Time
+SURAT
+
+ST PF 2*   Coach Position
+
+727 KMs   ⇓ Non-Stopping Stations 
+00:10 18-Nov
+00:10 18-Nov*
+On Time
+00:33 18-Nov
+00:33 18-Nov*
+On Time
+NAVSARI
+
+NVS PF 2*   Coach Position
+
+757 KMs   ⇓ Non-Stopping Stations 
+00:35 18-Nov
+00:35 18-Nov*
+On Time
+01:15 18-Nov
+01:15 18-Nov*
+On Time
+VALSAD
+
+BL PF 3*   Coach Position
+
+796 KMs   ⇓ Non-Stopping Stations 
+01:20 18-Nov
+01:20 18-Nov*
+On Time
+01:38 18-Nov
+01:38 18-Nov*
+On Time
+VAPI
+
+VAPI PF 2*   Coach Position
+
+822 KMs   ⇓ Non-Stopping Stations 
+01:40 18-Nov
+01:40 18-Nov*
+On Time
+02:38 18-Nov
+02:38 18-Nov*
+On Time
+PALGHAR
+
+PLG PF 2*   Coach Position
+
+903 KMs   ⇓ Non-Stopping Stations 
+02:40 18-Nov
+02:40 18-Nov*
+On Time
+03:30 18-Nov
+03:30 18-Nov*
+On Time
+BORIVALI
+
+BVI PF 7*   Coach Position
+
+960 KMs   ⇓ Non-Stopping Stations 
+03:35 18-Nov
+03:35 18-Nov*
+On Time
+04:10 18-Nov
+04:10 18-Nov*
+On Time
+DADAR
+
+DDR PF 4*   Coach Position
+
+984 KMs   ⇓ Non-Stopping Stations 
+04:15 18-Nov
+04:15 18-Nov*
+On Time
+04:55 18-Nov
+04:55 18-Nov*
+On Time
+MUMBAI CENTRAL
+
+MMCT PF 5*   Coach Position
+
+990 KMs
+ DSTN 
+ DSTN 
+
+
+
+
+
+Note - Data shown with (*) are dynamic in nature and may change.
+
+
+17-Nov 13:59    
+
+
+
+RailOne - Official Indian Railways Super App!
+Book tickets, check train status, track PNR & order food - All in one secure app.
+ Download Android App	 Download iOS App
+
+
+Property of Indian Railways
+Designed, Developed and Hosted by CRIS
+Copyright © 2013 Centre for Railway Information Systems
+All Rights Reserved

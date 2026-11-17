@@ -183,6 +183,21 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> startActivity(new Intent(MainActivity.this, LookupActivity.class).putExtra("mode", mode).putExtra("arg", arg)));
         }
 
+        /** Refresh a train the NTES page is already showing: "started", or "nopage" if the page is gone (open it once more). */
+        @JavascriptInterface public String autoRefresh(String num) {
+            if (!NtesSession.has(num)) return "nopage";
+            runOnUiThread(() -> NtesSession.refresh(getApplicationContext(), (res, why) -> {
+                try {
+                    JSONObject o = res != null ? res.put("mode", "auto") : new JSONObject().put("mode", "autofail").put("why", why);
+                    TripService.prefs(MainActivity.this).edit().putString("lookup", o.toString()).apply();
+                } catch (Exception ignored) { }
+                if (web != null) web.evaluateJavascript("window.onResumeApp&&onResumeApp()", null);
+            }));
+            return "started";
+        }
+
+        @JavascriptInterface public boolean ntesAlive(String num) { return NtesSession.has(num); }
+
         @JavascriptInterface public String takeLookup() {
             String s = TripService.prefs(MainActivity.this).getString("lookup", "");
             TripService.prefs(MainActivity.this).edit().remove("lookup").apply();

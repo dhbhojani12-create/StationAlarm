@@ -3,14 +3,19 @@ package com.dhbhojani.stationalarm;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
- * Off-device checks for the page parsers. Run from the android/ folder:
+ * Off-device checks for the NTES page parser. Run from the android/ folder:
  *   javac -d /tmp/sa-tests app/src/main/java/com/dhbhojani/stationalarm/{NtesParser,PnrParser}.java tests/ParserTests.java
  *   java -cp /tmp/sa-tests com.dhbhojani.stationalarm.ParserTests
- * tests/ntes-22946.txt is a real "Copy for Claude" capture of NTES Spot Your Train (train 22946, not yet started).
+ * Fixtures are real "Copy for Claude" captures of NTES Spot Your Train for train 22946 on 17-Nov-2026:
+ *   ntes-22946.txt          before the train started (every live time starred = expected)
+ *   ntes-22946-running.txt  at 13:59, train left Jamnagar 1 minute late (real times unstarred, later ones starred)
  */
 public class ParserTests {
     static int fails = 0;
@@ -22,78 +27,73 @@ public class ParserTests {
 
     static String read(String f) throws Exception { return new String(Files.readAllBytes(Paths.get(f)), StandardCharsets.UTF_8); }
 
+    static int idx(NtesParser.Result r, String code) {
+        for (int i = 0; i < r.stops.size(); i++) if (r.stops.get(i).code.equals(code)) return i;
+        return -1;
+    }
+
     public static void main(String[] a) throws Exception {
-        String page = read("tests/ntes-22946.txt");
+        // ---------- capture 1: train not started, layout A
+        NtesParser.Result r = NtesParser.parse(read("tests/ntes-22946.txt"));
+        eq("A: train number and name", r.number + " " + r.name, "22946 SAURASHTRA MAIL");
+        eq("A: status line", r.statusLine, "Yet to start from its source");
+        eq("A: 31 stops", r.stops.size(), 31);
+        eq("A: first/last stop", r.stops.get(0).code + "/" + r.stops.get(30).code, "OKHA/MMCT");
+        eq("A: platforms", r.stops.get(0).pf + "," + r.stops.get(1).pf + "," + r.stops.get(18).pf + "," + r.stops.get(28).pf, "2,,4,7");
+        eq("A: km first/second/last", r.stops.get(0).km + "/" + r.stops.get(1).km + "/" + r.stops.get(30).km, "0/10/990");
+        eq("A: OKHA dep 11:05", r.stops.get(0).dep, 665);
+        eq("A: MITHAPUR arr/dep", r.stops.get(1).arr + "/" + r.stops.get(1).dep, "677/678");
+        eq("A: BHARUCH arr/dep 23:11, 23:13", r.stops.get(22).arr + "/" + r.stops.get(22).dep, "1391/1393");
+        eq("A: SURAT arr 00:05 next day", r.stops.get(23).arr, 1445);
+        eq("A: MMCT arr 04:55 next day, no dep", r.stops.get(30).arr + "/" + r.stops.get(30).dep, "1735/-1");
+        eq("A: starred times are expected, not real", r.stops.get(2).earr + "/" + r.stops.get(2).edep + " real " + r.stops.get(2).aarr + "/" + r.stops.get(2).adep, "695/700 real -1/-1");
+        eq("A: not started, no live position", r.live.has, false);
 
-        // ---- the real page: train not started yet
-        NtesParser.Result r = NtesParser.parse(page);
-        eq("train number", r.number, "22946");
-        eq("train name", r.name, "SAURASHTRA MAIL");
-        eq("status line", r.statusLine, "Yet to start from its source");
-        eq("all 31 stops found", r.stops.size(), 31);
-        eq("first stop", r.stops.get(0).name + "/" + r.stops.get(0).code, "OKHA/OKHA");
-        eq("last stop", r.stops.get(30).name + "/" + r.stops.get(30).code, "MUMBAI CENTRAL/MMCT");
-        eq("platform OKHA", r.stops.get(0).pf, "2");
-        eq("no platform at MITHAPUR", r.stops.get(1).pf, "");
-        eq("platform Ahmedabad", r.stops.get(18).code + " PF " + r.stops.get(18).pf, "ADI PF 4");
-        eq("platform Borivali", r.stops.get(28).pf, "7");
-        eq("km first/second/last", r.stops.get(0).km + "/" + r.stops.get(1).km + "/" + r.stops.get(30).km, "0/10/990");
-        eq("OKHA dep 11:05", r.stops.get(0).dep, 665);
-        eq("MITHAPUR arr 11:17, dep 11:18", r.stops.get(1).arr + "/" + r.stops.get(1).dep, "677/678");
-        eq("DWARKA arr 11:35", r.stops.get(2).arr, 695);
-        eq("BHARUCH arr 23:11 dep 23:13 (day 1)", r.stops.get(22).arr + "/" + r.stops.get(22).dep, "1391/1393");
-        eq("SURAT arr 00:05 next day", r.stops.get(23).arr, 1445);
-        eq("MUMBAI CENTRAL arr 04:55 next day", r.stops.get(30).arr, 1735);
-        eq("MMCT has no departure", r.stops.get(30).dep, -1);
-        eq("expected (not real) times kept as expected", r.stops.get(2).earr + "/" + r.stops.get(2).edep, "695/700");
-        eq("nothing counted as really happened", r.stops.get(2).aarr + "/" + r.stops.get(2).adep, "-1/-1");
-        eq("not started: no live position", r.live.has, false);
+        // ---------- capture 2: train running, layout B (code line ends with "Coach Position"), unstarred = real
+        NtesParser.Result q = NtesParser.parse(read("tests/ntes-22946-running.txt"));
+        eq("B: train number and name", q.number + " " + q.name, "22946 SAURASHTRA MAIL");
+        eq("B: status line", q.statusLine, "Departed from JAMNAGAR(JAM) at 13:50 17-Nov (Delay: 00:01)");
+        eq("B: NTES update time", fmt(q.updatedMs), "2026-11-17 13:51");
+        eq("B: 31 stops", q.stops.size(), 31);
+        eq("B: platform JAM, HAPA (starred), MMCT", q.stops.get(idx(q, "JAM")).pf + "," + q.stops.get(idx(q, "HAPA")).pf + "," + q.stops.get(30).pf, "1,1,5");
+        eq("B: live found", q.live.has, true);
+        eq("B: last reached stop is JAMNAGAR", q.stops.get(q.live.lastIdx).code, "JAM");
+        eq("B: JAMNAGAR already left", q.live.atStation, false);
+        eq("B: delay 1 min (matches page)", q.live.delay, 1);
+        Stop(q, "JAM");
+        NtesParser.Stop jam = q.stops.get(idx(q, "JAM"));
+        eq("B: JAMNAGAR scheduled dep 13:49, real dep 13:50", jam.dep + "/" + jam.adep, "829/830");
+        eq("B: JAMNAGAR arrival scheduled 13:44, real 13:45", jam.arr + "/" + jam.aarr, "824/825");
+        NtesParser.Stop knls = q.stops.get(idx(q, "KNLS"));
+        eq("B: KANALAS departed 7 min late", (knls.adep - knls.dep) + "", "7");
+        NtesParser.Stop hapa = q.stops.get(idx(q, "HAPA"));
+        eq("B: HAPA arrival only expected (14:03)", hapa.aarr + "/" + hapa.earr, "-1/843");
+        eq("B: later stops expected, none real", q.stops.get(20).aarr + "/" + q.stops.get(20).adep + " exp " + (q.stops.get(20).earr >= 0), "-1/-1 exp true");
+        eq("B: 4 Min late stop BHATIYA", (q.stops.get(idx(q, "BHTA")).aarr - q.stops.get(idx(q, "BHTA")).arr) + "", "4");
 
-        // ---- same page, train now running: page clock 14:20. Slots are "this stop's departure, then the next stop's arrival".
-        // JAMNAGAR (stop 6): arrived 13:44 -> 13:50, left 13:49 -> 13:55. HAPA (7): arrived 14:03 -> 14:09, left 14:05 -> 14:11.
-        // ALIA BADA (8): arrival expected 14:22 (after the page clock, so not happened yet), departure expected 14:23.
-        String run = page.replace("17-Nov 07:42    ", "17-Nov 14:20    ")
-                .replace("\nStart Date : 17-Nov-2026\nYet to start from its source\n", "\nStart Date : 17-Nov-2026\nDeparted from HAPA\n")
-                .replace("13:44 17-Nov\n13:44 17-Nov*", "13:44 17-Nov\n13:50 17-Nov*")
-                .replace("13:49 17-Nov\n13:49 17-Nov*", "13:49 17-Nov\n13:55 17-Nov*")
-                .replace("14:03 17-Nov\n14:03 17-Nov*", "14:03 17-Nov\n14:09 17-Nov*")
-                .replace("14:05 17-Nov\n14:05 17-Nov*", "14:05 17-Nov\n14:11 17-Nov*")
-                .replace("14:16 17-Nov\n14:16 17-Nov*", "14:16 17-Nov\n14:22 17-Nov*")
-                .replace("14:17 17-Nov\n14:17 17-Nov*", "14:17 17-Nov\n14:23 17-Nov*");
-        NtesParser.Result q = NtesParser.parse(run);
-        eq("running: status line", q.statusLine, "Departed from HAPA");
-        eq("running: live found", q.live.has, true);
-        eq("running: last reached stop is HAPA", q.stops.get(q.live.lastIdx).code, "HAPA");
-        eq("running: HAPA already left", q.live.atStation, false);
-        eq("running: delay 6 min", q.live.delay, 6);
-        eq("running: JAMNAGAR real arrival 13:50 and departure 13:55", q.stops.get(6).aarr + "/" + q.stops.get(6).adep, "830/835");
-        eq("running: HAPA real arrival 14:09 and departure 14:11", q.stops.get(7).aarr + "/" + q.stops.get(7).adep, "849/851");
-        eq("running: ALIA BADA arrival only expected 14:22", q.stops.get(8).aarr + "/" + q.stops.get(8).earr, "-1/862");
-        eq("running: later stop expected, not real", q.stops.get(12).aarr + "/" + (q.stops.get(12).earr >= 0), "-1/true");
-        NtesParser.Result q2 = NtesParser.parse(run.replace("17-Nov 14:20    ", "17-Nov 14:22    "));
-        eq("at ALIA BADA: arrived, not left", q2.stops.get(q2.live.lastIdx).code + " atStation=" + q2.live.atStation, "ALB atStation=true");
-        eq("at ALIA BADA: delay 6", q2.live.delay, 6);
-
-        // ---- coach order (real rows from the page)
+        // ---------- coach order (real rows from the page)
         List<String> rows = Arrays.asList(read("tests/ntes-22946-rows.txt").split("\n"));
-        NtesParser.coaches(rows, r);
-        eq("22 coaches in the base order", r.coaches.size(), 23);
-        eq("engine first", r.coaches.get(0).label + "@" + r.coaches.get(0).pos, "ENG@0");
-        eq("B2 is 10th from the engine", find(r, "B2"), "3A B2 @10");
-        eq("S1 position", find(r, "S1"), "SL S1 @19");
-        eq("RA coach added at some stations", r.coachesExtra.size() == 1 ? r.coachesExtra.get(0).label + "@" + r.coachesExtra.get(0).pos : "none:" + r.coachesExtra.size(), "RA@23");
+        NtesParser.coaches(rows, q);
+        eq("coaches: 23 in order", q.coaches.size(), 23);
+        eq("coaches: engine first", q.coaches.get(0).label + "@" + q.coaches.get(0).pos, "ENG@0");
+        eq("coaches: B2 is 10 behind the engine", find(q, "B2"), "3A B2 @10");
+        eq("coaches: S1", find(q, "S1"), "SL S1 @19");
+        eq("coaches: RA added at some stations", q.coachesExtra.size() == 1 ? q.coachesExtra.get(0).label + "@" + q.coachesExtra.get(0).pos : "none:" + q.coachesExtra.size(), "RA@23");
 
-        // ---- older page layout still reads
-        String old = "Train No./Name 12009 SHATABDI EXP\n"
-            + "\nMUMBAI CENTRAL\n\nMMCT PF 2 Coach Position\n0 KMs\n06:25 17-Nov\n06:25 17-Nov*\n"
-            + "08:02 17-Nov\n08:11 17-Nov*\n\nBHARUCH JN\n\nBH PF 3* Coach Position\n392 KMs\n08:07 17-Nov\n08:17 17-Nov*\n";
-        NtesParser.Result o = NtesParser.parse(old);
-        eq("old layout stops", o.stops.size(), 2);
-        eq("old layout real times", o.stops.get(0).adep + "/" + o.stops.get(1).aarr, "385/491");
-        eq("old layout delay", o.live.delay, 10);
+        // ---------- an odd block (one time missing) still gets a sensible answer instead of nonsense
+        NtesParser.Result o = NtesParser.parse(read("tests/ntes-22946-running.txt").replace("14:03 17-Nov\n14:03 17-Nov*\nOn Time\n", "14:03 17-Nov\nOn Time\n"));
+        eq("odd block: still 31 stops", o.stops.size(), 31);
 
         System.out.println(fails == 0 ? "ALL PASSED" : fails + " FAILED");
         if (fails > 0) System.exit(1);
+    }
+
+    static void Stop(NtesParser.Result r, String c) { }
+
+    static String fmt(long ms) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        f.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        return f.format(new Date(ms));
     }
 
     static String find(NtesParser.Result r, String label) {

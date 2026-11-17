@@ -101,9 +101,10 @@ const fmtKm=m=>m<1000?Math.round(m)+' m':(m<10000?(m/1000).toFixed(1):Math.round
 const hhmm=t=>{if(t==null||t<0)return'';const m=t%1440,h=Math.floor(m/60),mi=m%60;return((h+11)%12+1)+':'+String(mi).padStart(2,'0')+(h<12?' am':' pm')+(t>=1440?' (day '+(Math.floor(t/1440)+1)+')':'')};
 const clock=()=>{const d=new Date();let h=d.getHours();const m=String(d.getMinutes()).padStart(2,'0');return((h+11)%12+1)+':'+m+(h<12?' am':' pm')};
 const ageText=ms=>{const m=Math.max(0,Math.round((Date.now()-ms)/60000));return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago'};
+const liveAt=l=>l.upd||l.at;
 const delayExact=d=>d==null?'':d>0?d+' min late':d<0?(-d)+' min early':'on time';
 /* what NTES said about where the train is (matched by station name, because the stop lists can differ) */
-function liveLine(l){if(!l)return'';if(!l.has)return l.msg||'No live times on NTES yet (the train may not have started)';return(l.atStation?'At ':'Left ')+l.name+(l.delay!=null?' · '+delayExact(l.delay):'')+' · '+ageText(l.at)}
+function liveLine(l){if(!l)return'';if(!l.has)return l.msg||'No live times on NTES yet (the train may not have started)';return(l.atStation?'At ':'Left ')+l.name+(l.delay!=null?' · '+delayExact(l.delay):'')+' · '+ageText(liveAt(l))}
 const tripStop=s=>Object.assign({n:s.n,la:s.la,lo:s.lo,t:s.t,h:s.h},s.pf?{pf:s.pf}:{});
 function delayText(d){if(d==null)return'';if(d>5)return'About '+fmtMin(d)+' late';if(d<-5)return'Running early';return'On time'}
 
@@ -228,7 +229,7 @@ V.trip=()=>{
     <div class="big" style="font-size:32px;margin:0 0 6px">${esc(d)}</div>${top}
     ${status||s.alerted||s.destPf?`<div class="chips" style="margin-top:8px">${status?`<span class="pill acc">${status}</span>`:''}${s.destPf?`<span class="pill">Platform ${esc(s.destPf)} expected</span>`:''}${s.alerted?'<span class="pill">Alert sent</span>':''}</div>`:''}
     ${t.live&&!local?`<div class="small" style="opacity:.85;margin-top:8px">NTES: ${esc(liveLine(t.live))}</div>`:''}
-    ${t.train&&!local?`<button class="link" style="color:inherit;padding:8px 0 0;text-align:left" onclick="SA.lookup('ntes','${esc(t.train)}')">Refresh train status from NTES ›</button>`:''}
+    ${t.train&&!local?(hasSA&&SA.ntesAlive&&SA.ntesAlive(t.train)?`<div class="small" style="opacity:.8;margin-top:6px">NTES status refreshes by itself every 5 min</div>`:`<button class="link" style="color:inherit;padding:8px 0 0;text-align:left" onclick="SA.lookup('ntes','${esc(t.train)}')">Get live train status from NTES (then it updates by itself) ›</button>`):''}
     ${!waiting?`<div class="small" style="opacity:.75;margin-top:8px">${s.due!=null?'Waiting for the train':s.speed>1?'Moving at about '+Math.round(s.speed*3.6)+' km/h':'Not moving right now'}${ago!=null?' · updated '+(ago<60?ago+' s':Math.round(ago/60)+' min')+' ago':''} · no network needed</div>`:''}</div>
   ${route}
   <div class="foot"><div class="tools">
@@ -391,6 +392,18 @@ function coachCard(x){if(!x.coaches||!x.coaches.length)return'';
 const tracked=()=>LS.get('tracked',[]);
 function saveTracked(x){const l=tracked().filter(y=>y.num!==x.num);l.unshift({num:x.num,name:String(x.name||'').replace(/\s*\(NTES\)$/,''),stops:x.stops,live:x.live,coaches:x.coaches,coachesExtra:x.coachesExtra,fetched:Date.now()});LS.set('tracked',l.slice(0,8))}
 let curTrack=null,TR={num:'',err:''};
+/* auto refresh: the app keeps the NTES page it read and presses the page's own Refresh button */
+const AUTO={state:'',at:0};
+const autoOn=()=>LS.get('autoRef',true)!==false;
+window.trackAuto=function(num,manual){
+  if(!hasSA||!SA.autoRefresh){if(manual)SA.lookup('track',num);return}
+  const r=SA.autoRefresh(num);
+  if(r==='nopage'){AUTO.state='nopage';if(manual)SA.lookup('track',num)}   // the page is gone: open it once more
+  else AUTO.state='checking';
+  render()};
+const autoNote=()=>!autoOn()?'Auto refresh is off.':AUTO.state==='checking'?'Checking NTES…':AUTO.state==='ok'?'Auto refresh every 90 s · updated '+ageText(AUTO.at):
+  AUTO.state==='nopage'||AUTO.state==='nobutton'||AUTO.state==='lost'?'Auto refresh needs the NTES page again. Tap Refresh live status once.':'Auto refresh every 90 s while this screen is open.';
+setInterval(()=>{if(view==='trackTrain'&&autoOn()&&curTrack&&document.visibilityState!=='hidden'&&!['checking','nopage','nobutton','lost'].includes(AUTO.state))trackAuto(curTrack,false)},90000);
 V.track=()=>`${head('Track a train','Where is it now? Live from NTES.')}
   <div class="row" style="margin-top:12px"><input type="number" inputmode="numeric" placeholder="Train number, e.g. 12009" aria-label="Train number" value="${esc(TR.num)}" oninput="TR.num=this.value" onkeydown="if(event.key==='Enter')trackFind()" style="flex:2"><button class="btn pri" style="margin-top:0;flex:1" onclick="trackFind()">Track</button></div>
   ${TR.err?`<div class="banner">${esc(TR.err)}</div>`:''}
@@ -408,17 +421,18 @@ V.trackTrain=()=>{const x=tracked().find(y=>y.num===curTrack);if(!x)return V.tra
   const sched=s=>s.ta!=null?s.ta:s.t;
   const exp=s=>s.ea!=null?s.ea:s.ed!=null?s.ed:(d!=null&&sched(s)>=0?sched(s)+d:null);
   const next=nx>=0&&nx<x.stops.length?x.stops[nx]:null,last=x.stops[x.stops.length-1];
-  const stale=L&&Date.now()-L.at>30*60000;
+  const stale=L&&Date.now()-liveAt(L)>30*60000;
   const row=(s,i)=>{const past=li>=0&&i<=li,at=past?(i===li&&L.atStation?(s.aa!=null?'arrived '+hhmm(s.aa):''):(s.ad!=null?'left '+hhmm(s.ad):s.aa!=null?'arrived '+hhmm(s.aa):'')):'';
     const e=!past?exp(s):null;
     return `<div class="stop ${past?'past':''} ${i===nx&&li>=0?'me':''}"><i></i><span><b style="font-weight:${i===nx?800:600}">${esc(s.n)}</b><small class="muted small" style="display:block">${past?at:(e!=null&&e!==sched(s)?'expected '+hhmm(e)+' · scheduled '+hhmm(sched(s)):'scheduled '+hhmm(sched(s))+(e!=null?' · on time':''))}${s.pf?' · Platform '+esc(s.pf):''}</small></span></div>`};
   return `${head(x.name,L?liveLine(L):'Timetable only. Tap Refresh for live status.')}
   <div class="card dark">${L?`<div class="stat" style="font-size:22px">${L.atStation?'At':'Left'} ${esc(L.name)}</div>
-    <div class="chips" style="margin-top:8px">${d!=null?`<span class="pill acc">${esc(delayExact(d))}</span>`:''}<span class="pill">${esc(ageText(L.at))}</span></div>`:`<div class="stat" style="font-size:22px">${esc((x.live&&x.live.msg)||'No live position yet')}</div><div class="small" style="opacity:.8;margin-top:4px">Tap Refresh once the train has started.</div>`}
+    <div class="chips" style="margin-top:8px">${d!=null?`<span class="pill acc">${esc(delayExact(d))}</span>`:''}<span class="pill">NTES ${esc(ageText(liveAt(L)))}</span></div>`:`<div class="stat" style="font-size:22px">${esc((x.live&&x.live.msg)||'No live position yet')}</div><div class="small" style="opacity:.8;margin-top:4px">Tap Refresh once the train has started.</div>`}
     ${next?`<div style="margin-top:10px"><div class="small" style="opacity:.8">Next stop</div><b style="font-size:17px">${esc(next.n)}</b><div class="small" style="opacity:.85">${exp(next)!=null&&exp(next)!==sched(next)?'expected '+hhmm(exp(next))+' · ':''}scheduled ${hhmm(sched(next))}${next.pf?' · Platform '+esc(next.pf):''}</div></div>`:''}
     ${L&&last&&next!==last&&exp(last)!=null?`<div class="small" style="opacity:.85;margin-top:8px">Reaches ${esc(last.n)} around ${hhmm(exp(last))} (NTES estimate)</div>`:''}
-    ${stale?`<div class="small" style="margin-top:8px;font-weight:700">This is ${esc(ageText(L.at))}. Refresh for the latest.</div>`:''}</div>
-  <button class="btn pri" onclick="SA.lookup('track','${esc(x.num)}')">Refresh live status</button>
+    ${stale?`<div class="small" style="margin-top:8px;font-weight:700">This is ${esc(ageText(liveAt(L)))}. Refresh for the latest.</div>`:''}</div>
+  <button class="btn pri" onclick="trackAuto('${esc(x.num)}',true)">Refresh live status</button>
+  <div class="small muted center" style="margin:-4px 0 10px">${esc(autoNote())} <button class="link" style="padding:0 0 0 4px" onclick="LS.set('autoRef',!autoOn());render()">${autoOn()?'Turn off':'Turn on'}</button></div>
   <div class="list">${x.stops.map(row).join('')}</div>
   <p class="center muted small">“Expected” times are NTES's own estimates for stations the train has not reached yet.</p>
   ${coachCard(x)}
@@ -426,7 +440,7 @@ V.trackTrain=()=>{const x=tracked().find(y=>y.num===curTrack);if(!x)return V.tra
   <button class="btn" onclick="rideTracked('${esc(x.num)}')">I am on this train: set my alarm</button>
   <button class="btn warn" onclick="if(confirm('Remove from recent trains?')){LS.set('tracked',tracked().filter(y=>y.num!=='${esc(x.num)}'));goBack()}">Remove</button>`};
 window.trackShare=function(num){const x=tracked().find(y=>y.num===num);if(!x)return;const L=x.live&&x.live.has?x.live:null;
-  SA.share('Train '+x.name+(L?': '+(L.atStation?'at ':'left ')+L.name+(L.delay!=null?', '+delayExact(L.delay):'')+' (NTES, '+ageText(L.at)+').':'.'))};
+  SA.share('Train '+x.name+(L?': '+(L.atStation?'at ':'left ')+L.name+(L.delay!=null?', '+delayExact(L.delay):'')+' (NTES, '+ageText(liveAt(L))+').':'.'))};
 window.rideTracked=function(num){const x=tracked().find(y=>y.num===num);if(!x)return;T.num=x.num;T.train={num:x.num,name:x.name,stops:x.stops,live:x.live};T.dest=null;T.err='';T.showAll=false;go('long')};
 
 /* help card */
@@ -440,7 +454,11 @@ V.help=()=>{const t=JSON.parse(SA.trip()||SA.last()||'{}');const s=JSON.parse(SA
 /* results coming back from Indian Railways pages */
 function takeLookup(){if(!hasSA)return false;const r=SA.takeLookup();if(!r)return false;const x=JSON.parse(r);
   if(x.mode==='pnr'){const k=upsertTicket(fromPnr(x));curTicket=k.id;stack=['home','tickets'];view='ticket';render();SA.toast('Ticket saved');return true}
-  if(x.mode==='track'&&x.stops){saveTracked(x);curTrack=x.num;stack=['home','track'];view='trackTrain';render();SA.toast(x.live&&x.live.has?'Live status updated':'No live times yet. Showing the timetable.');return true}
+  if(x.mode==='auto'&&x.stops){AUTO.state='ok';AUTO.at=Date.now();saveTracked(x);
+    if(hasSA&&SA.trip()){const cur=JSON.parse(SA.trip());if(cur.train===x.num){cur.live=x.live;x.stops.forEach(ns=>{const m=(cur.st||[]).find(z=>z.n===ns.n);if(m&&ns.pf)m.pf=ns.pf});SA.updateTrip(JSON.stringify(cur))}}
+    render();return true}
+  if(x.mode==='autofail'){AUTO.state=x.why||'lost';render();return true}
+  if(x.mode==='track'&&x.stops){AUTO.state='ok';AUTO.at=Date.now();saveTracked(x);curTrack=x.num;stack=['home','track'];view='trackTrain';render();SA.toast(x.live&&x.live.has?'Live status updated':'No live times yet. Showing the timetable.');return true}
   if(x.mode==='ntes'&&x.stops&&hasSA&&SA.trip()){const cur=JSON.parse(SA.trip());
     if(cur.train===x.num){cur.live=x.live;x.stops.forEach(ns=>{const m=(cur.st||[]).find(z=>z.n===ns.n);if(m&&ns.pf)m.pf=ns.pf});SA.updateTrip(JSON.stringify(cur));stack=[];view='trip';render();SA.toast('Train status updated');return true}}
   if(x.mode==='ntes'&&x.stops){T.train=x;T.num=x.num;T.err='';T.dest=null;stack=['home'];view='long';render();SA.toast('Route loaded from NTES. Tap your stop.');return true}

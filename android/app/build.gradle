@@ -10,8 +10,8 @@ android {
         applicationId 'com.dhbhojani.stationalarm'
         minSdk 29
         targetSdk 34
-        versionCode 9
-        versionName '0.8.1'
+        versionCode 10
+        versionName '0.9'
     }
 
     signingConfigs {
