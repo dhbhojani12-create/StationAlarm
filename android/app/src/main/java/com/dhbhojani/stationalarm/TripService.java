@@ -472,12 +472,15 @@ public class TripService extends Service {
         getSystemService(NotificationManager.class).notify(id, b.build());
     }
 
-    Notification ongoing(String title, String text) {
+    Notification ongoing(String title, String text) { return ongoing(title, text, text); }
+
+    Notification ongoing(String title, String text, String big) {
         Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         Intent stop = new Intent(this, TripService.class).setAction(ACT_STOP);
         return new Notification.Builder(this, CH_TRIP)
                 .setSmallIcon(android.R.drawable.ic_dialog_map)
                 .setContentTitle(title).setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText(big))
                 .setOngoing(true).setOnlyAlertOnce(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setContentIntent(PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
@@ -504,7 +507,15 @@ public class TripService extends Service {
             title = d + " · " + Math.round(remaining / 1000.0) + " km" + (etaMin != null ? " · about " + fmtMin(etaMin) : "");
             text = near + (dueMin != null ? " · train due in " + fmtDue(dueMin) : shownDelay() != null ? " · " + delayPhrase(shownDelay()) : "");
         }
-        getSystemService(NotificationManager.class).notify(ID_ONGOING, ongoing(title, text));
+        // lock screen / expanded view: where I am, next stop, arrival time, platform, delay
+        StringBuilder big = new StringBuilder(text);
+        try {
+            if (!arrived && nextIdx >= 0 && nextIdx < st.length()) big.append("\nNext: ").append(st.getJSONObject(nextIdx).getString("n"));
+            if (!arrived && etaMin != null) big.append("\nReach ").append(d).append(" at ").append(clockAt(now + Math.round(etaMin * 60000)));
+            if (!arrived && !destPf().isEmpty()) big.append(" · platform ").append(destPf());
+            if (!arrived && !local && shownDelay() != null && dueMin == null) big.append("\n").append(delayPhrase(shownDelay()));
+        } catch (Exception ignored) { }
+        getSystemService(NotificationManager.class).notify(ID_ONGOING, ongoing(title, text, big.toString()));
         try {
             JSONObject s = new JSONObject()
                     .put("active", true).put("arrived", arrived).put("dest", d)
