@@ -44,7 +44,16 @@ public class Data {
         byCode = map;
     }
 
-    static Station byCode(String c) { return byCode == null ? null : byCode.get(c); }
+    /** Codes NTES uses now that the bundled 2016 data knows under their old code. */
+    static final Map<String, String> ALIAS = new HashMap<>();
+    static { ALIAS.put("MMCT", "BCT"); } // Mumbai Central
+
+    static Station byCode(String c) {
+        if (byCode == null || c == null) return null;
+        Station s = byCode.get(c);
+        if (s == null && ALIAS.containsKey(c)) s = byCode.get(ALIAS.get(c));
+        return s;
+    }
 
     static String asset(Context ctx, String name) {
         StringBuilder sb = new StringBuilder();
@@ -64,7 +73,7 @@ public class Data {
         List<Station> starts = new ArrayList<>(), contains = new ArrayList<>();
         for (Station st : stations) {
             String n = st.name.toLowerCase(Locale.ROOT);
-            if (st.code.equalsIgnoreCase(s) || n.startsWith(s) || n.startsWith("mumbai " + s)) starts.add(st);
+            if (st.code.equalsIgnoreCase(s) || st.code.equalsIgnoreCase(ALIAS.get(s.toUpperCase(Locale.ROOT))) || n.startsWith(s) || n.startsWith("mumbai " + s)) starts.add(st);
             else if (n.contains(s)) contains.add(st);
         }
         starts.addAll(contains);

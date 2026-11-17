@@ -198,6 +198,12 @@ public class LookupActivity extends Activity {
         Data.load(this);
         // NTES "Spot Your Train" lists the stopping stations in its page text
         NtesParser.Result nr = NtesParser.parse(snap.optString("text"));
+        JSONArray cr = snap.optJSONArray("rows");
+        if (cr != null) { // the coach order sits in the page's table rows
+            List<String> rl = new ArrayList<>();
+            for (int i = 0; i < cr.length(); i++) rl.add(cr.getString(i));
+            NtesParser.coaches(rl, nr);
+        }
         if (nr.stops.size() >= 2) {
             JSONArray arr = new JSONArray();
             int liveIdx = -1; // the live stop's position in arr (stations we have no location for are skipped)
@@ -211,6 +217,8 @@ public class LookupActivity extends Activity {
                 if (x.dep >= 0) o.put("td", x.dep);
                 if (x.aarr >= 0) o.put("aa", x.aarr);   // real arrival
                 if (x.adep >= 0) o.put("ad", x.adep);   // real departure
+                if (x.earr >= 0) o.put("ea", x.earr);   // arrival NTES expects (not happened yet)
+                if (x.edep >= 0) o.put("ed", x.edep);   // departure NTES expects
                 if (!x.pf.isEmpty()) o.put("pf", x.pf);
                 if (i == nr.live.lastIdx) liveIdx = arr.length();
                 arr.put(o);
@@ -219,7 +227,12 @@ public class LookupActivity extends Activity {
                 String num = nr.number.isEmpty() ? arg : nr.number;
                 String name = nr.name.isEmpty() ? "Train " + num : num + " " + titleCase(nr.name);
                 JSONObject res = new JSONObject().put("num", num).put("name", name + " (NTES)").put("stops", arr);
-                JSONObject lv = new JSONObject().put("at", System.currentTimeMillis()).put("has", nr.live.has && liveIdx >= 0);
+                JSONObject lv = new JSONObject().put("at", System.currentTimeMillis()).put("has", nr.live.has && liveIdx >= 0)
+                        .put("msg", nr.statusLine);
+                if (!nr.coaches.isEmpty()) {
+                    res.put("coaches", coachJson(nr.coaches));
+                    if (!nr.coachesExtra.isEmpty()) res.put("coachesExtra", coachJson(nr.coachesExtra));
+                }
                 if (nr.live.has && liveIdx >= 0) {
                     lv.put("idx", liveIdx).put("name", arr.getJSONObject(liveIdx).getString("n")).put("atStation", nr.live.atStation);
                     if (nr.live.hasDelay) lv.put("delay", nr.live.delay);
@@ -255,6 +268,12 @@ public class LookupActivity extends Activity {
         JSONArray arr = new JSONArray(stops.values());
         arr.getJSONObject(arr.length() - 1).put("h", 1);
         return new JSONObject().put("num", arg).put("name", "Train " + arg + " (from NTES)").put("stops", arr);
+    }
+
+    static JSONArray coachJson(List<NtesParser.Coach> l) throws Exception {
+        JSONArray a = new JSONArray();
+        for (NtesParser.Coach c : l) a.put(new JSONObject().put("t", c.type).put("c", c.label).put("p", c.pos));
+        return a;
     }
 
     static String titleCase(String s) {
