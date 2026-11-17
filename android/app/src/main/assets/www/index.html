@@ -317,7 +317,11 @@ function upsertTicket(k){const l=tickets();const i=l.findIndex(x=>(k.pnr&&x.pnr=
   else{k.id=k.id||'t'+Date.now();if(k.pax&&k.checked)k.hist=[{at:k.checked,pax:k.pax.map(p=>p.now),chart:k.chart||''}];l.unshift(k)}
   saveTickets(l);const kk=l.find(x=>x.id===(i>=0?l[i].id:k.id));remindTicket(kk);syncNext();return kk}
 /* one line for the home-screen widget: the next ticket */
-function syncNext(){if(!hasSA||!SA.setNext)return;const l=upcoming().filter(k=>depMs(k)!=null).sort((a,b)=>depMs(a)-depMs(b));const k=l[0]||upcoming()[0];
+function syncSeats(){if(!hasSA||!SA.setSeats)return;const m={};
+  upcoming().forEach(k=>{if(!k.train)return;let v=(k.pax||[]).map(p=>{const sd=seat(p.now);return sd?sd.coach+'/'+sd.berth+(sd.type?' '+sd.type:''):(p.now&&!/^(CNF|RAC|WL)/i.test(p.now)?p.now:'')}).filter(Boolean).join(', ');
+    if(!v&&k.coach)v=k.coach+(k.berth?'/'+k.berth:'');if(v)m[k.train]=v});
+  SA.setSeats(JSON.stringify(m))}
+function syncNext(){syncSeats();if(!hasSA||!SA.setNext)return;const l=upcoming().filter(k=>depMs(k)!=null).sort((a,b)=>depMs(a)-depMs(b));const k=l[0]||upcoming()[0];
   if(!k){SA.setNext('');return}const p=k.pax&&k.pax[0];const sd=p&&seat(p.now);
   SA.setNext(['Next: '+(k.train||'ticket'),k.date&&new Date(k.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}),p?(sd?sd.coach+'/'+sd.berth:p.now):''].filter(Boolean).join(' · '))}
 /* status words -> kind and rank (lower is better), so a change can be called an improvement or not */

@@ -31,9 +31,16 @@ public class TripWidget extends AppWidgetProvider {
             if (s.optBoolean("active") && TripService.prefs(c).contains("trip")) {
                 String t = s.optString("title", "Trip starting…");
                 int dot = t.indexOf(" · ");
-                v.setTextViewText(R.id.label, "Heading to");
+                String seat = "";
+                try {
+                    JSONObject tr = new JSONObject(TripService.prefs(c).getString("trip", "{}"));
+                    seat = new JSONObject(TripService.prefs(c).getString("seats", "{}")).optString(tr.optString("train", ""), "");
+                } catch (Exception ignored) { }
+                String near = s.optString("near", "");
+                String rest = dot > 0 ? t.substring(dot + 3) : s.optString("text", "");
+                v.setTextViewText(R.id.label, seat.isEmpty() ? "Heading to" : "Seat " + seat + " · heading to");
                 v.setTextViewText(R.id.title, dot > 0 ? t.substring(0, dot) : t);
-                v.setTextViewText(R.id.text, dot > 0 ? t.substring(dot + 3) : s.optString("text", ""));
+                v.setTextViewText(R.id.text, near.isEmpty() ? rest : near);
                 v.setViewVisibility(R.id.row, View.GONE);
             } else {
                 v.setTextViewText(R.id.label, "Station Alarm");

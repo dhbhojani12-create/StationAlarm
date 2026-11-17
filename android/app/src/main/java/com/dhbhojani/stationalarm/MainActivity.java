@@ -175,6 +175,12 @@ public class MainActivity extends Activity {
             TripWidget.refresh(MainActivity.this);
         }
 
+        /** Seat per train number (JSON), so the widget can show "Coach B2 / Berth 34" during a trip. */
+        @JavascriptInterface public void setSeats(String json) {
+            TripService.prefs(MainActivity.this).edit().putString("seats", json == null ? "{}" : json).apply();
+            TripWidget.refresh(MainActivity.this);
+        }
+
         @JavascriptInterface public String takePendingSaved() { String s = pendingSaved; pendingSaved = null; return s == null ? "" : s; }
 
         @JavascriptInterface public void share(String text) { runOnUiThread(() -> startActivity(waIntent(MainActivity.this, text))); }
