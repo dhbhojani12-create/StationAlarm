@@ -323,7 +323,7 @@ function syncSeats(){if(!hasSA||!SA.setSeats)return;const m={};
   SA.setSeats(JSON.stringify(m))}
 function syncNext(){syncSeats();if(!hasSA||!SA.setNext)return;const l=upcoming().filter(k=>depMs(k)!=null).sort((a,b)=>depMs(a)-depMs(b));const k=l[0]||upcoming()[0];
   if(!k){SA.setNext('');return}const p=k.pax&&k.pax[0];const sd=p&&seat(p.now);
-  SA.setNext(['Next: '+(k.train||'ticket'),k.date&&new Date(k.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}),p?(sd?sd.coach+'/'+sd.berth:p.now):''].filter(Boolean).join(' · '))}
+  SA.setNext(['Next: '+(k.train||'ticket'),k.date&&new Date(k.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}),p?(sd?sd.coach+'/'+sd.berth:p.now):''].filter(Boolean).join(' · ')+(()=>{const x=k.train&&tracked().find(y=>y.num===k.train);return x&&x.live&&x.live.has?'\n'+liveLine(x.live):''})())}
 /* status words -> kind and rank (lower is better), so a change can be called an improvement or not */
 const stKind=s=>{s=String(s||'').toUpperCase();if(/RAC/.test(s))return'rac';if(/WL/.test(s))return'wl';if(/CAN/.test(s))return'can';if(/^(CNF|CONFIRMED)/.test(s)||/^[A-Z]{1,2}\d{1,2}\/\d/.test(s))return'cnf';return'other'};
 const stRank=s=>{const k=stKind(s),n=+((String(s||'').match(/(\d+)(?!.*\d)/)||[])[1]||0);return k==='cnf'?0:k==='rac'?1000+n:k==='wl'?2000+n:k==='can'?9000:5000};
@@ -394,7 +394,7 @@ function coachCard(x){if(!x.coaches||!x.coaches.length)return'';
 
 /* track a train: live position from NTES, no need to be on it */
 const tracked=()=>LS.get('tracked',[]);
-function saveTracked(x){const l=tracked().filter(y=>y.num!==x.num);l.unshift({num:x.num,name:String(x.name||'').replace(/\s*\(NTES\)$/,''),stops:x.stops,live:x.live,coaches:x.coaches,coachesExtra:x.coachesExtra,fetched:Date.now()});LS.set('tracked',l.slice(0,8))}
+function saveTracked(x){const l=tracked().filter(y=>y.num!==x.num);l.unshift({num:x.num,name:String(x.name||'').replace(/\s*\(NTES\)$/,''),stops:x.stops,live:x.live,coaches:x.coaches,coachesExtra:x.coachesExtra,fetched:Date.now()});LS.set('tracked',l.slice(0,8));syncNext()}
 let curTrack=null,TR={num:'',err:''};
 /* auto refresh: the app keeps the NTES page it read and presses the page's own Refresh button */
 const AUTO={state:'',at:0};
